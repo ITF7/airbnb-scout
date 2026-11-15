@@ -72,6 +72,10 @@ def main():
           any("isn't a tube station" in (l.get("nearMissReason") or "") for l in R["listings"]))
     check("every listing has checks and a why", all(l.get("checks") and l.get("why") for l in R["listings"]))
 
+    ext = HERE.parent / "extension" / "extract"
+    same = all((ext / n).exists() and (ext / n).read_bytes() == (HERE / "extract" / n).read_bytes() for n in ("search.js", "listing.js"))
+    check("extension uses the same page-reading scripts", same, "" if same else "copy scripts/extract/*.js into extension/extract/")
+
     print("\nAll good." if not failures else f"\n{len(failures)} check(s) failed: {', '.join(failures)}")
     sys.exit(1 if failures else 0)
 
