@@ -1,66 +1,79 @@
 {
   "_about": "How Scout scores and filters listings. Every version of Scout reads this file. Edit the numbers, or use the tuning page (http://localhost:8787/tune) to try changes on a saved search first. Scores are clamped to 0-100.",
-
   "points": {
     "base": 10,
-
     "price": {
       "_help": "Cheaper than your budget earns up to `max`. Full points when the stay is at least `fullAtShareUnderBudget` (0.4 = 40%) under budget; zero at the budget.",
       "max": 30,
       "fullAtShareUnderBudget": 0.4
     },
-
     "walk": {
       "_help": "Walk to the nearest station. Full points up to `fullWithinMin` minutes, falling to zero at your walking limit (10 min if you didn't give one).",
       "max": 25,
       "fullWithinMin": 3
     },
-
     "reviewCount": {
-      "_help": "How many reviews a place has matters more than its star rating. Each band is [at least this many reviews, points]. Multiplied when the request says reviews matter.",
-      "bands": [[0, 0], [1, 6], [5, 14], [20, 20], [50, 25]],
-      "multiplierIfUserPrefersReviews": 1.4
+      "_help": "How many reviews a place has is the main trust signal: a place with no reviews loses points, so it ranks below even a so-so place with 10 reviews. Each band is [at least this many reviews, points]. Multiplied when the request says reviews matter.",
+      "bands": [
+        [
+          0,
+          -10
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          14
+        ],
+        [
+          10,
+          22
+        ],
+        [
+          20,
+          28
+        ],
+        [
+          50,
+          35
+        ]
+      ],
+      "multiplierIfUserPrefersReviews": 1.2
     },
-
     "rating": {
-      "_help": "Stars only count once a place has at least `minReviews` reviews: (rating - 4) x `perStarAbove4`.",
-      "perStarAbove4": 10,
-      "minReviews": 5
+      "_help": "Stars count once a place has at least `minReviews` reviews: (rating - 4) x `perStarAbove4`. So 4.9 earns +18, 4.5 earns +10 and 3.8 loses 4.",
+      "perStarAbove4": 20,
+      "minReviews": 3
     },
-
     "reviewIssue": {
       "_help": "Each recurring problem in the reviews (dirt, bugs, mould, noise, not as described...).",
       "each": -5,
       "maxTotal": -15
     },
-
     "seriousFlag": {
       "_help": "Serious red flags: description contradicts the title, host on site in an 'entire place', scam or safety reports.",
       "each": -10,
       "maxTotal": -20
     },
-
     "redFlag": {
       "_help": "Other red flags (minor concerns).",
       "each": -4,
       "maxTotal": -12
     },
-
     "centrality": {
       "_help": "London tube zones, when the request prefers central (most do). Zones 3+ get 0.",
       "zone1": 8,
       "zone2": 4
     },
-
     "safety": {
       "_help": "Street crime around the station compared with the other listings in the same search (police data).",
       "calmer": 4,
       "average": 0,
       "busier": -4
     },
-
     "wishlist": 5,
-
     "arrival": {
       "_help": "Late arrivals: a quicker airport-to-door trip earns up to `max`. Full points within `fullWithinMin`, losing 1 point every `losePointEveryMin` minutes after that.",
       "max": 5,
@@ -68,7 +81,6 @@
       "losePointEveryMin": 15
     }
   },
-
   "rules": {
     "_help": "What drops a listing, and what makes it a near miss instead of a pick.",
     "overBudgetNearMissUpTo": 0.05,
