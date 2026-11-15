@@ -8,9 +8,27 @@
       "fullAtShareUnderBudget": 0.4
     },
     "walk": {
-      "_help": "Walk to the nearest station. Full points up to `fullWithinMin` minutes, falling to zero at your walking limit (10 min if you didn't give one).",
-      "max": 25,
-      "fullWithinMin": 3
+      "_help": "Walk to the nearest station, measured against the walking limit in the request (10 min if none is given). Each band is [share of the limit, points]: with a 10-minute limit, up to 5 min = +25, up to 7 = +18, up to 9 = +10, 10 = +4. Full points always cover at least `fullWithinAtLeastMin` minutes, because Airbnb blurs locations by about that much.",
+      "bands": [
+        [
+          0.5,
+          25
+        ],
+        [
+          0.7,
+          18
+        ],
+        [
+          0.9,
+          10
+        ],
+        [
+          1.0,
+          4
+        ]
+      ],
+      "fullWithinAtLeastMin": 3,
+      "defaultLimitMin": 10
     },
     "reviewCount": {
       "_help": "How many reviews a place has is the main trust signal: a place with no reviews loses points, so it ranks below even a so-so place with 10 reviews. Each band is [at least this many reviews, points]. Multiplied when the request says reviews matter.",
@@ -84,11 +102,10 @@
     }
   },
   "rules": {
-    "_help": "What drops a listing, and what makes it a near miss instead of a pick. `nearMissBelowRating`: a place rated under this (with enough reviews to count) can't be a pick.",
+    "_help": "What drops a listing, and what makes it a near miss instead of a pick. `walkNearMissUpToShare`: a walk up to this share of the limit (1.6 = 16 min on a 10-minute limit) is a near miss, longer is dropped. `nearMissBelowRating`: a place rated under this (with enough reviews to count) can't be a pick.",
     "overBudgetNearMissUpTo": 0.05,
-    "walkNearMissExtraMin": 6,
+    "walkNearMissUpToShare": 1.6,
     "nearMissBelowRating": 4.0,
-    "prefilterWalkSlackMin": 3,
     "lateArrivalBeforeHour": 6,
     "lateArrivalFromHour": 22,
     "keepMatches": 8,

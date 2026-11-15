@@ -157,8 +157,8 @@ def cmd_near(a):
             dropped["beds"] += 1; continue
         st = nearest_station(c["lat"], c["lon"], stations) if stations and c.get("lat") is not None else None
         if st:
-            # coordinates are blurred by Airbnb by up to a few hundred metres: allow 3 min slack
-            if a.max_walk and st["walkMin"] > a.max_walk + scoring.load_config().get("rules", {}).get("prefilterWalkSlackMin", 3):
+            # coordinates are blurred, so keep everything up to the near-miss cutoff; the full check decides
+            if a.max_walk and st["walkMin"] > scoring.walk_cutoff(a.max_walk, scoring.load_config()):
                 dropped["walk"] += 1; continue
             z = geo.zone_min(st["zone"])
             if (a.max_zone and z > a.max_zone) or (a.min_zone and z < a.min_zone):
@@ -168,7 +168,7 @@ def cmd_near(a):
             pre += 30 * min(1, max(0, (a.budget - c["total"]) / (a.budget * 0.4)))
         pre += review_pts(c.get("reviews")) + dict(scoring.breakdown({"reviews": c.get("reviews"), "rating": c.get("rating")}, {}, scoring.load_config())).get("Star rating", 0)
         if st:
-            pre += 25 * max(0, 1 - max(0, st["walkMin"] - 3) / max(1, (a.max_walk or 10) - 1))
+            pre += scoring.walk_points(st["walkMin"], a.max_walk or None, scoring.load_config())
             pre += {1: 8, 2: 4}.get(geo.zone_min(st["zone"]), 0)
         row = {"id": str(c["id"]), "name": c.get("name") or c.get("title"), "type": c.get("title"), "area": c.get("area"),
                "total": c.get("total"), "beds": c.get("beds"), "info": c.get("info"), "rating": c.get("rating"),

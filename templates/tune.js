@@ -8,7 +8,7 @@ let saved = null, cfg = null, timer = null;
 const FIELDS = {
   "Starting points": [["points.base", "Every listing starts with", 0, 30, 1]],
   "Price": [["points.price.max", "Most points", 0, 60, 1], ["points.price.fullAtShareUnderBudget", "Full points when this far under budget", 0.05, 1, 0.05]],
-  "Walk to station": [["points.walk.max", "Most points", 0, 60, 1], ["points.walk.fullWithinMin", "Full points within (min)", 0, 15, 1]],
+  "Walk to station": [["points.walk.fullWithinAtLeastMin", "Full points always within (min)", 0, 10, 1], ["points.walk.defaultLimitMin", "Limit when the request gives none (min)", 3, 30, 1]],
   "Number of reviews": [["points.reviewCount.multiplierIfUserPrefersReviews", "Multiplier when reviews matter", 1, 3, 0.1]],
   "Star rating": [["points.rating.neutralAt", "Neutral rating (no points)", 3.5, 5, 0.05], ["points.rating.perStarAbove", "Points per star above it", 0, 60, 1],
                   ["points.rating.perStarBelow", "Points lost per star below it", 0, 100, 1], ["points.rating.minReviews", "Only counts from (reviews)", 0, 50, 1]],
@@ -19,7 +19,7 @@ const FIELDS = {
   "Area safety": [["points.safety.calmer", "Calmer area", 0, 15, 1], ["points.safety.average", "Average area", -10, 10, 1], ["points.safety.busier", "Busier area", -15, 0, 1]],
   "Wishlist": [["points.wishlist", "On your wishlist", 0, 20, 1]],
   "Arrival time": [["points.arrival.max", "Most points", 0, 20, 1], ["points.arrival.fullWithinMin", "Full points within (min)", 0, 180, 5], ["points.arrival.losePointEveryMin", "Lose 1 point every (min)", 1, 60, 1]],
-  "Rules": [["rules.overBudgetNearMissUpTo", "Near miss if over budget by up to", 0, 0.3, 0.01], ["rules.walkNearMissExtraMin", "Near miss if walk is over the limit by up to (min)", 0, 20, 1],
+  "Rules": [["rules.overBudgetNearMissUpTo", "Near miss if over budget by up to", 0, 0.3, 0.01], ["rules.walkNearMissUpToShare", "Near miss up to this share of the walking limit", 1, 3, 0.1],
             ["rules.nearMissBelowRating", "Can't be a pick if rated below (★)", 0, 5, 0.1],
             ["rules.keepMatches", "Picks to show", 1, 20, 1], ["rules.keepNearMisses", "Near misses to show", 0, 10, 1]]
 };
@@ -35,6 +35,9 @@ function renderControls() {
   for (const [group, fields] of Object.entries(FIELDS)) {
     h += `<div class="group"><b>${esc(group)}</b>`;
     if (HELP[group] && get(cfg, HELP[group])) h += `<div class="help">${esc(get(cfg, HELP[group]))}</div>`;
+    if (group === "Walk to station") {
+      h += `<div class="bands">${get(cfg, "points.walk.bands").map((b, i) => `<div><span>≤ ${Math.round(b[0] * 100)}% of limit</span><input type="number" data-wband="${i}" value="${b[1]}" step="1" aria-label="Points within ${Math.round(b[0] * 100)}% of the walking limit"></div>`).join("")}</div>`;
+    }
     if (group === "Number of reviews") {
       h += `<div class="bands">${get(cfg, "points.reviewCount.bands").map((b, i) => `<div><span>${b[0]}+ reviews</span><input type="number" data-band="${i}" value="${b[1]}" step="1" aria-label="Points for ${b[0]} or more reviews"></div>`).join("")}</div>`;
     }
@@ -53,6 +56,10 @@ function renderControls() {
     set(cfg, el.dataset.path, v);
     $("controls").querySelectorAll(`[data-path="${el.dataset.path}"]`).forEach(o => { if (o !== el) o.value = v; });
     changed();
+  }));
+  $("controls").querySelectorAll("[data-wband]").forEach(el => el.addEventListener("input", () => {
+    const v = Number(el.value); if (Number.isNaN(v)) return;
+    get(cfg, "points.walk.bands")[+el.dataset.wband][1] = v; changed();
   }));
   $("controls").querySelectorAll("[data-band]").forEach(el => el.addEventListener("input", () => {
     const v = Number(el.value); if (Number.isNaN(v)) return;

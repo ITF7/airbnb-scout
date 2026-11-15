@@ -86,7 +86,7 @@ def classify(c: dict, F: dict, cfg: dict, ctx: dict | None = None):
         reasons.append("Not clear you get the whole place")
     st = c.get("station") or {}
     if max_walk and st.get("walkMin") is not None and st["walkMin"] > max_walk:
-        if st["walkMin"] > max_walk + r.get("walkNearMissExtraMin", 6):
+        if st["walkMin"] > walk_cutoff(max_walk, cfg):
             return "drop", ["Too far from transit"], []
         reasons.append(f"{st['walkMin']} min walk to the tube")
     if ctx.get("london") and st.get("name") and ctx.get("is_tube_station") and not ctx["is_tube_station"](st["name"]):
@@ -139,6 +139,30 @@ def review_points(n, bands) -> float:
     return pts
 
 
+def walk_points(walk_min, limit, cfg) -> float:
+    """Bands are shares of the request's walking limit, so '5 min max' and '30 min max' both work."""
+    w = cfg["points"]["walk"]
+    if "bands" not in w:  # older settings files
+        span = max(1, (limit or 10) - (w["fullWithinMin"] - 2))
+        return w["max"] * max(0, 1 - max(0, walk_min - w["fullWithinMin"]) / span)
+    limit = limit or w.get("defaultLimitMin", 10)
+    bands = sorted(w["bands"], key=lambda b: b[0])
+    if walk_min <= max(w.get("fullWithinAtLeastMin", 0), bands[0][0] * limit):
+        return bands[0][1]
+    for share, pts in bands:
+        if walk_min <= share * limit + 1e-9:
+            return pts
+    return 0
+
+
+def walk_cutoff(limit, cfg) -> float:
+    """Longest walk that is still a near miss; anything longer is dropped."""
+    r = cfg.get("rules", {})
+    if "walkNearMissUpToShare" in r:
+        return limit * r["walkNearMissUpToShare"]
+    return limit + r.get("walkNearMissExtraMin", 6)
+
+
 def capped(n_items, each, max_total) -> float:
     """each and max_total are negative numbers (penalties)."""
     return max(max_total, each * n_items)
@@ -153,9 +177,7 @@ def breakdown(c: dict, F: dict, cfg: dict) -> list[tuple[str, float]]:
         p = P["price"]
         out.append(("Price under budget", p["max"] * min(1, max(0, (budget - tp) / (budget * p["fullAtShareUnderBudget"])))))
     if st.get("walkMin") is not None:
-        w = P["walk"]
-        span = max(1, (F.get("maxWalkMin") or 10) - (w["fullWithinMin"] - 2))
-        out.append(("Walk to station", w["max"] * max(0, 1 - max(0, st["walkMin"] - w["fullWithinMin"]) / span)))
+        out.append(("Walk to station", walk_points(st["walkMin"], F.get("maxWalkMin"), cfg)))
     n = c.get("reviews") or 0
     rc = P["reviewCount"]
     out.append(("Number of reviews", review_points(n, rc["bands"]) * (rc["multiplierIfUserPrefersReviews"] if F.get("preferReviews", True) else 1)))
