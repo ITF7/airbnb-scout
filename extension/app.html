@@ -73,6 +73,14 @@
   input[type=range] { accent-color: var(--blue); flex: 1 1 160px; max-width: 260px; }
   .mono { font-variant-numeric: tabular-nums; min-width: 52px; }
   .row > select, .row > input[type=number] { width: auto; flex: none; }
+  .row > select { min-width: 80px; }
+  .more { border-top: 1px solid var(--border); padding-top: 10px; }
+  .more summary { cursor: pointer; list-style: none; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .more summary::-webkit-details-marker { display: none; }
+  .more summary::before { content: "▸"; color: var(--muted); }
+  .more[open] summary::before { content: "▾"; }
+  .more summary b { font-size: 14px; }
+  .more-body { display: grid; gap: 14px; margin-top: 12px; }
 </style>
 </head>
 <body>
@@ -91,46 +99,50 @@
   </form>
 
   <form class="box trip" id="trip" autocomplete="off" hidden>
-    <div class="trip-head"><b>Your search</b><span class="hint" id="tripHint">Check the details, change anything, then search.</span></div>
+    <div class="trip-head"><b>Your search</b><span class="hint" id="tripHint">Check the details, then search.</span></div>
     <div class="grid">
       <label class="fld wide"><span>Where</span><input id="f-loc" type="text" placeholder="City, country" required></label>
       <label class="fld"><span>Check-in</span><input id="f-in" type="date" required></label>
       <label class="fld"><span>Check-out</span><input id="f-out" type="date" required></label>
-      <div class="fld"><span>Guests</span><div class="stepper"><button type="button" data-step="f-guests:-1" aria-label="Fewer guests">−</button><input id="f-guests" type="number" min="1" max="16" value="2" aria-label="Guests"><button type="button" data-step="f-guests:1" aria-label="More guests">+</button></div></div>
-      <div class="fld"><span>Beds (at least)</span><div class="stepper"><button type="button" data-step="f-beds:-1" aria-label="Fewer beds">−</button><input id="f-beds" type="number" min="0" max="10" value="1" aria-label="Beds"><button type="button" data-step="f-beds:1" aria-label="More beds">+</button></div></div>
     </div>
-
-    <div class="fld"><span>Budget for the whole stay</span>
-      <div class="row" style="justify-content:flex-start">
-        <input id="f-budget" type="number" min="0" step="50" placeholder="No limit" style="width:140px" aria-label="Budget">
-        <select id="f-cur" aria-label="Currency"><option>ILS</option><option>USD</option><option>EUR</option><option>GBP</option></select>
-        <div class="seg" role="group" aria-label="Budget type">
-          <button type="button" data-mode="cap">Up to</button><button type="button" data-mode="range">Around</button><button type="button" data-mode="cheaper">Cheaper is better</button>
+    <div class="row" style="justify-content:flex-start;align-items:flex-end">
+      <div class="fld"><span>Guests</span><div class="stepper" style="width:130px"><button type="button" data-step="f-guests:-1" aria-label="Fewer guests">−</button><input id="f-guests" type="number" min="1" max="16" value="2" aria-label="Guests"><button type="button" data-step="f-guests:1" aria-label="More guests">+</button></div></div>
+      <div class="fld"><span>Budget for the whole stay</span>
+        <div class="row" style="justify-content:flex-start">
+          <input id="f-budget" type="number" min="0" step="50" placeholder="No limit" style="width:120px" aria-label="Budget">
+          <select id="f-cur" aria-label="Currency"><option>ILS</option><option>USD</option><option>EUR</option><option>GBP</option></select>
+          <div class="seg" role="group" aria-label="Budget type">
+            <button type="button" data-mode="cap">Up to</button><button type="button" data-mode="range">Around</button><button type="button" data-mode="cheaper">Cheaper is better</button>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="toggles">
-      <label class="tog"><input id="f-entire" type="checkbox" checked><span>Entire place to ourselves</span></label>
-      <label class="tog"><input id="f-self" type="checkbox"><span>Self check-in</span></label>
-      <label class="tog"><input id="f-reviews" type="checkbox" checked><span>Well-reviewed places first</span></label>
-    </div>
-
-    <div class="fld"><span>Near public transport</span>
-      <div class="row" style="justify-content:flex-start">
-        <label class="tog"><input id="f-walkon" type="checkbox"><span>Walk to a station at most</span></label>
-        <input id="f-walk" type="range" min="3" max="30" step="1" value="10" aria-label="Walking minutes"><b id="f-walkv" class="mono">10 min</b>
-      </div>
-      <div class="row" id="zoneRow" style="justify-content:flex-start" hidden>
-        <label class="tog" for="f-zone"><span>London tube zones up to</span></label>
-        <select id="f-zone"><option value="">Any</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select>
-      </div>
-    </div>
-
-    <details class="fld" id="arrBox"><summary>Arriving late or early? (optional)</summary>
-      <div class="grid" style="margin-top:8px">
-        <label class="fld wide"><span>Arriving at</span><input id="f-arrplace" type="text" placeholder="e.g. London Gatwick (LGW)"></label>
-        <label class="fld wide"><span>Landing / arrival time</span><input id="f-arrtime" type="datetime-local"></label>
+    <details class="more" id="more">
+      <summary><b>More filters</b> <span id="moreSum" class="hint"></span></summary>
+      <div class="more-body">
+        <div class="fld"><span>Beds (at least, sofa beds count)</span><div class="stepper" style="width:130px"><button type="button" data-step="f-beds:-1" aria-label="Fewer beds">−</button><input id="f-beds" type="number" min="0" max="10" value="1" aria-label="Beds"><button type="button" data-step="f-beds:1" aria-label="More beds">+</button></div></div>
+        <div class="toggles">
+          <label class="tog"><input id="f-entire" type="checkbox" checked><span>Entire place to ourselves</span></label>
+          <label class="tog"><input id="f-self" type="checkbox"><span>Self check-in</span></label>
+          <label class="tog"><input id="f-reviews" type="checkbox" checked><span>Well-reviewed places first</span></label>
+        </div>
+        <div class="fld"><span>Near public transport</span>
+          <div class="row" style="justify-content:flex-start">
+            <label class="tog"><input id="f-walkon" type="checkbox"><span>Walk to a station at most</span></label>
+            <input id="f-walk" type="range" min="3" max="30" step="1" value="10" aria-label="Walking minutes"><b id="f-walkv" class="mono">10 min</b>
+          </div>
+          <div class="row" id="zoneRow" style="justify-content:flex-start" hidden>
+            <label class="tog" for="f-zone"><span>London tube zones up to</span></label>
+            <select id="f-zone"><option value="">Any</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select>
+          </div>
+        </div>
+        <div class="fld"><span>Arriving late or early? (optional)</span>
+          <div class="grid">
+            <label class="fld wide"><span>Arriving at</span><input id="f-arrplace" type="text" placeholder="e.g. London Gatwick (LGW)"></label>
+            <label class="fld wide"><span>Landing / arrival time</span><input id="f-arrtime" type="datetime-local"></label>
+          </div>
+        </div>
       </div>
     </details>
 

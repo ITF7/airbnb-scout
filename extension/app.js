@@ -133,7 +133,21 @@ function fillForm(f) {
   zoneVisibility();
   $("f-arrplace").value = (f.arrival && f.arrival.place) || "";
   $("f-arrtime").value = (f.arrival && f.arrival.datetime) ? f.arrival.datetime.slice(0, 16) : "";
-  $("arrBox").open = !!(f.arrival && f.arrival.datetime);
+  moreSummary();
+}
+
+// one line under "More filters" so nothing set is hidden when it's closed
+function moreSummary() {
+  const bits = [];
+  const beds = Number($("f-beds").value) || 0;
+  if (beds > 1) bits.push(`${beds}+ beds`);
+  if ($("f-entire").checked) bits.push("entire place");
+  if ($("f-self").checked) bits.push("self check-in");
+  if ($("f-walkon").checked) bits.push(`≤ ${$("f-walk").value} min walk`);
+  if (!$("zoneRow").hidden && $("f-zone").value) bits.push(`zone ≤ ${$("f-zone").value}`);
+  if ($("f-arrplace").value && $("f-arrtime").value) bits.push(`arriving ${$("f-arrtime").value.slice(11, 16)}`);
+  if (!$("f-reviews").checked) bits.push("reviews not prioritised");
+  $("moreSum").textContent = bits.length ? bits.join(" · ") : "beds, entire place, self check-in, transit, arrival";
 }
 
 function readForm() {
@@ -305,6 +319,9 @@ $("f-walkon").addEventListener("change", walkLabel);
 $("f-loc").addEventListener("input", zoneVisibility);
 $("f-in").addEventListener("change", () => { if ($("f-out").value && $("f-out").value <= $("f-in").value) $("f-out").value = ""; $("f-out").min = $("f-in").value; });
 setMode("cap"); walkLabel();
+["f-beds", "f-entire", "f-self", "f-reviews", "f-walkon", "f-walk", "f-zone", "f-arrplace", "f-arrtime", "f-loc"].forEach(id =>
+  $(id).addEventListener(id === "f-walk" || id === "f-loc" || id === "f-arrplace" ? "input" : "change", moreSummary));
+document.querySelectorAll('[data-step="f-beds:-1"], [data-step="f-beds:1"]').forEach(b => b.addEventListener("click", moreSummary));
 try { $("f-in").min = new Date().toISOString().slice(0, 10); } catch (e) {}
 $("q").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("form").requestSubmit(); } });
 $("check").addEventListener("click", () => { if (!S.busy) checkBest(); });
