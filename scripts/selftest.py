@@ -47,9 +47,9 @@ def main():
     plan = geo.plan_tiles(3, 1, 2, 16, 900, "https://www.airbnb.com/s/London/homes?adults=2")
     check("sweep plan: 2 sectors with wide URLs", len(plan["scouts"]) == 2 and all("wideUrl" in s for s in plan["scouts"]))
 
-    cards = [  # Leyton (near the Central line), far west Ealing (too far from the tube), over budget
+    cards = [  # Leyton (near the Central line), Richmond Park (far from any tube), over budget
         {"id": "a", "lat": 51.5585, "lon": -0.0070, "total": 2158, "beds": 2, "rating": 4.54, "reviews": 146},
-        {"id": "b", "lat": 51.5088, "lon": -0.2484, "total": 2518, "beds": 2, "rating": 4.81, "reviews": 31},
+        {"id": "b", "lat": 51.4430, "lon": -0.2740, "total": 2518, "beds": 2, "rating": 4.81, "reviews": 31},  # Richmond Park
         {"id": "c", "lat": 51.5000, "lon": -0.1200, "total": 3600, "beds": 2, "rating": 4.9, "reviews": 80},
     ]
     cf = tmp / "cards.json"
