@@ -210,6 +210,69 @@ def walk_cutoff(limit, cfg) -> float:
     return limit + r.get("walkNearMissExtraMin", 6)
 
 
+def safety_asked(F: dict) -> bool:
+    words = " ".join(str(x) for x in (F.get("mustHaves") or []) + (F.get("niceToHaves") or [])).lower()
+    return bool(F.get("safeAtNight")) or "safe" in words or "neighbo" in words
+
+
+def safety_points(level, F: dict, cfg: dict) -> float:
+    sp = cfg["points"].get("safety", {})
+    if not level:
+        return 0
+    if "whenAsked" in sp:
+        return sp["whenAsked" if safety_asked(F) else "otherwise"].get(level, 0)
+    return sp.get(level, 0)  # older settings files
+
+
+def assign_safety_levels(pool: list, cfg: dict) -> None:
+    """Calmer / average / busier relative to this search, from each listing's streetCrime count."""
+    counts = sorted(c["safety"]["streetCrime"] for c in pool if (c.get("safety") or {}).get("streetCrime") is not None)
+    if not counts:
+        return
+    lo_cut, hi_cut = counts[len(counts) // 3], counts[(2 * len(counts)) // 3]
+    k = cfg["points"].get("safety", {}).get("busierIfTimesCalmest", 1.0)
+    lo, hi = counts[0], counts[-1]
+    for c in pool:
+        sf = c.get("safety") or {}
+        n = sf.get("streetCrime")
+        if n is None:
+            continue
+        if n > hi_cut and n >= k * lo:
+            sf["level"] = "busier"
+        elif n <= lo_cut and hi >= k * n:
+            sf["level"] = "calmer"
+        else:
+            sf["level"] = "average"
+
+
+def central_preference(F: dict) -> str:
+    v = str(F.get("centralPreference") or "").lower()
+    if v in ("strong", "default", "none"):
+        return v
+    g = F.get("geography") or {}
+    if g.get("preferCentral") is False:
+        return "none"
+    words = " ".join(str(x) for x in (F.get("niceToHaves") or []) + (F.get("mustHaves") or [])).lower()
+    return "strong" if "central" in words else "default"
+
+
+def central_points(c: dict, F: dict, cfg: dict) -> float:
+    cp = cfg["points"].get("centrality", {})
+    st = c.get("station") or {}
+    base = 0
+    z = zone_min(st.get("zone")) if st else 99
+    if z in (1, 2):
+        base = cp.get("zone1" if z == 1 else "zone2", 0)
+    elif c.get("centreKm") is not None and cp.get("kmBands"):
+        for km, pts in sorted(cp["kmBands"], key=lambda b: b[0]):
+            if c["centreKm"] <= km:
+                base = pts
+                break
+    if "multiplier" not in cp:  # older settings files: on unless the request said otherwise
+        return base if (F.get("geography") or {}).get("preferCentral", True) else 0
+    return base * cp["multiplier"].get(central_preference(F), 0.5)
+
+
 def capped(n_items, each, max_total) -> float:
     """each and max_total are negative numbers (penalties)."""
     return max(max_total, each * n_items)
@@ -239,13 +302,13 @@ def breakdown(c: dict, F: dict, cfg: dict) -> list[tuple[str, float]]:
         out.append(("Problems in reviews", capped(issues, P["reviewIssue"]["each"], P["reviewIssue"]["maxTotal"])))
     if c.get("bonus"):
         out.append(("Your extra priorities", c["bonus"]))
-    if (F.get("geography") or {}).get("preferCentral", True):
-        zp = {1: P["centrality"].get("zone1", 0), 2: P["centrality"].get("zone2", 0)}.get(zone_min(st.get("zone")) if st else 99, 0)
-        if zp:
-            out.append(("Central location", zp))
+    cp = central_points(c, F, cfg)
+    if cp:
+        out.append(("Central location", cp))
     lvl = (c.get("safety") or {}).get("level")
-    if lvl in P.get("safety", {}) and P["safety"][lvl]:
-        out.append((f"Area safety ({lvl})", P["safety"][lvl]))
+    sp = safety_points(lvl, F, cfg)
+    if sp:
+        out.append((f"Area safety ({lvl})", sp))
     serious = c.get("seriousFlags") or []
     if serious:
         out.append(("Serious red flags", capped(len(serious), P["seriousFlag"]["each"], P["seriousFlag"]["maxTotal"])))
@@ -273,8 +336,9 @@ def rescore(results: dict, cfg: dict, ctx: dict | None = None) -> dict:
     F = results.get("filters") or {}
     r = cfg.get("rules", {})
     matches, near, dropped = [], [], []
-    for l in results.get("listings", []):
-        c = deepcopy(l)
+    listings = [deepcopy(l) for l in results.get("listings", [])]
+    assign_safety_levels(listings, cfg)
+    for l, c in zip(results.get("listings", []), listings):
         verdict, reasons, checks = classify(c, F, cfg, ctx)
         c["checks"] = checks
         c["score"] = score(c, F, cfg)

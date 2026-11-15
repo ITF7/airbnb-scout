@@ -89,6 +89,7 @@ Reply with ONLY this JSON (null where unknown):
  "entirePlace": true/false, "selfCheckIn": true/false, "amenities": [any of "wifi","kitchen","freeParking","washer","airConditioning","workspace","pool" that are REQUIRED],
  "maxWalkMin": N or null (transit walk limit; "near a station" -> 10), "transit": "tube|metro|train|null",
  "geography": {{"maxZone": N or null, "minZone": N or null, "preferCentral": true/false}},
+ "centralPreference": "strong" ("central", "as central as possible") | "default" (not mentioned) | "none" ("don't mind", "quiet suburbs"),
  "safeAtNight": true/false, "preferReviews": true/false,
  "arrival": null or {{"place": "full airport/station name", "datetime": "YYYY-MM-DDTHH:MM", "type": "flight|train"}},
  "mustHaves": ["short labels"], "niceToHaves": ["short labels"], "assumptions": ["short notes on defaults you picked"]}}

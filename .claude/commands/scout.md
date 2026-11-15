@@ -31,6 +31,7 @@ Build this filter object (today's date is in your environment — resolve "next 
   "mustHaves": ["Close to a train station"],
   "niceToHaves": [],
   "geography": { "maxZone": 3, "minZone": null, "radius": null, "areas": [], "preferCentral": true },
+  "centralPreference": "default",
   "maxWalkMin": 10,
   "safeAtNight": true,
   "arrival": { "place": "London Gatwick Airport (LGW)", "datetime": "2026-11-28T01:00", "type": "flight" },
@@ -90,7 +91,7 @@ https://www.airbnb.com/s/<Location-URL-encoded>/homes?checkin=…&checkout=…&a
 - **Tube zones (London):** "up to zone 3", "zones 1–2", "zone 2 max" → `maxZone` (and `minZone` if given). A listing passes if its nearest Underground station is in that zone range (a station on a zone boundary like "2/3" counts as the lower zone).
 - **Distance:** "within 5 km of the centre", "20 min from Brandenburger Tor" → a radius around a point.
 - **Named areas:** "Kreuzberg or Neukölln", "Le Marais" → those districts only.
-- **"Central as possible"** is a ranking preference: closer to the centre ranks higher. It isn't a hard limit unless the user also gives one.
+- **"Central as possible"** is a ranking preference: closer to the centre ranks higher. It isn't a hard limit unless the user also gives one. Set `centralPreference`: `strong` for "central" / "as central as possible", `none` for "don't mind" / "quiet suburbs", otherwise `default`.
 
 ## 3. Plan the search (as few scouts as possible)
 

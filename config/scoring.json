@@ -131,15 +131,42 @@
       "maxTotal": -12
     },
     "centrality": {
-      "_help": "London tube zones, when the request prefers central (most do). Zones 3+ get 0.",
+      "_help": "London uses tube zones; other cities use the straight-line distance from the city centre. Each distance band is [up to km, points]. Multiplied by how much the request cares: 'as central as possible' = `strong`, not mentioned = `default`, 'don't mind' or 'quiet suburbs' = `none`.",
       "zone1": 8,
-      "zone2": 4
+      "zone2": 4,
+      "kmBands": [
+        [
+          2,
+          8
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          7,
+          2
+        ]
+      ],
+      "multiplier": {
+        "strong": 1.5,
+        "default": 0.5,
+        "none": 0
+      }
     },
     "safety": {
-      "_help": "Street crime around the station compared with the other listings in the same search (police data).",
-      "calmer": 4,
-      "average": 0,
-      "busier": -4
+      "_help": "Street crime around each listing's station, compared with the other listings in the same search (police data, England and Wales). Counts more when the request asks for a safe area. An area is only 'busier' if it has at least `busierIfTimesCalmest` times the street crime of the calmest place in the search (and 'calmer' only if the busiest has that much more), so a search full of safe areas doesn't get a scapegoat.",
+      "whenAsked": {
+        "calmer": 8,
+        "average": 0,
+        "busier": -8
+      },
+      "otherwise": {
+        "calmer": 3,
+        "average": 0,
+        "busier": -3
+      },
+      "busierIfTimesCalmest": 1.5
     },
     "wishlist": 5,
     "arrival": {

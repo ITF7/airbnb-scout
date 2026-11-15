@@ -375,15 +375,20 @@ def cmd_rank(a):
     pool = matches + near
     if london and not a.no_safety:
         sf = safety_for(sorted({(c.get("station") or {}).get("name") for c in pool if (c.get("station") or {}).get("name")}), stations_all)
-        vals = sorted(v["streetCrime"] for v in sf.values())
-        lo_cut = vals[len(vals) // 3] if vals else 0
-        hi_cut = vals[(2 * len(vals)) // 3] if vals else 0
         for c in pool:
             s = sf.get((c.get("station") or {}).get("name"))
             if s:
-                lvl = "calmer" if s["streetCrime"] <= lo_cut else "busier" if s["streetCrime"] > hi_cut else "average"
                 prev = c.get("safety") or {}
-                c["safety"] = {"level": lvl, "streetCrime": s["streetCrime"], "month": s["month"], "note": prev.get("note", "")}
+                c["safety"] = {"streetCrime": s["streetCrime"], "month": s["month"], "note": prev.get("note", "")}
+        scoring.assign_safety_levels(pool, cfg)
+
+    # distance from the city centre (outside London, where zones do this job)
+    if not london:
+        centre = geo.city_centre(F.get("location") or "")
+        if centre:
+            for c in pool:
+                if c.get("lat") is not None and c.get("lon") is not None:
+                    c["centreKm"] = round(geo.dist_m(centre, (c["lat"], c["lon"])) / 1000, 1)
 
     # arrival routes per station (TfL), shared across listings at the same station
     airport_opts = []

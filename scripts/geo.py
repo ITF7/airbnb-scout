@@ -137,6 +137,31 @@ def plan_tiles(max_zone, min_zone, scouts, per_scout, radius_m, base_url):
     return {"maxZone": max_zone, "radiusM": radius_m, "stationsInRange": len(st), "tilesPlanned": sum(len(o["tiles"]) for o in out), "scouts": out}
 
 
+# ---------------------------------------------------------------- city centres
+
+CENTRES = ROOT / "data" / "city_centres.json"
+
+
+def city_centre(place: str):
+    """(lat, lon) of a city's centre from OpenStreetMap (free; one request per city, then cached)."""
+    key = place.strip().lower()
+    if not key:
+        return None
+    cache = json.loads(CENTRES.read_text(encoding="utf-8")) if CENTRES.exists() else {}
+    if key in cache:
+        return tuple(cache[key]) if cache[key] else None
+    try:
+        url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + urllib.parse.quote(place)
+        res = get_json(url, timeout=30)
+        hit = (float(res[0]["lat"]), float(res[0]["lon"])) if res else None
+    except Exception:  # noqa: BLE001
+        return None
+    cache[key] = list(hit) if hit else None
+    CENTRES.parent.mkdir(parents=True, exist_ok=True)
+    CENTRES.write_text(json.dumps(cache, ensure_ascii=False, indent=1), encoding="utf-8")
+    return hit
+
+
 # ---------------------------------------------------------------- safety
 
 NIGHT_CATS = ("violent-crime", "robbery", "theft-from-the-person", "public-order", "possession-of-weapons")

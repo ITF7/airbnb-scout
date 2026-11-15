@@ -20,8 +20,12 @@ const FIELDS = {
   "Problems in reviews": [["points.reviewIssue.each", "Each problem", -20, 0, 1], ["points.reviewIssue.maxTotal", "At most", -40, 0, 1]],
   "Serious red flags": [["points.seriousFlag.each", "Each flag", -40, 0, 1], ["points.seriousFlag.maxTotal", "At most", -60, 0, 1]],
   "Other red flags": [["points.redFlag.each", "Each flag", -20, 0, 1], ["points.redFlag.maxTotal", "At most", -40, 0, 1]],
-  "Central location": [["points.centrality.zone1", "Zone 1", 0, 20, 1], ["points.centrality.zone2", "Zone 2", 0, 20, 1]],
-  "Area safety": [["points.safety.calmer", "Calmer area", 0, 15, 1], ["points.safety.average", "Average area", -10, 10, 1], ["points.safety.busier", "Busier area", -15, 0, 1]],
+  "Central location": [["points.centrality.zone1", "London zone 1", 0, 20, 1], ["points.centrality.zone2", "London zone 2", 0, 20, 1],
+                       ["points.centrality.multiplier.strong", "× when the request says 'central'", 0, 3, 0.1],
+                       ["points.centrality.multiplier.default", "× when it doesn't mention it", 0, 3, 0.1]],
+  "Area safety": [["points.safety.whenAsked.calmer", "Calmer, when safety was asked for", 0, 20, 1], ["points.safety.whenAsked.busier", "Busier, when safety was asked for", -20, 0, 1],
+                  ["points.safety.otherwise.calmer", "Calmer, otherwise", 0, 20, 1], ["points.safety.otherwise.busier", "Busier, otherwise", -20, 0, 1],
+                  ["points.safety.busierIfTimesCalmest", "Only 'busier' if this many times the calmest", 1, 3, 0.1]],
   "Wishlist": [["points.wishlist", "On your wishlist", 0, 20, 1]],
   "Arrival time": [["points.arrival.max", "Most points", 0, 20, 1], ["points.arrival.fullWithinMin", "Full points within (min)", 0, 180, 5], ["points.arrival.losePointEveryMin", "Lose 1 point every (min)", 1, 60, 1]],
   "Rules": [["rules.walkNearMissUpToShare", "Near miss up to this share of the walking limit", 1, 3, 0.1],
@@ -45,6 +49,9 @@ function renderControls() {
         h += `<div class="help" style="margin:8px 0 4px">${label}: points by share of the budget</div><div class="bands">${get(cfg, "points.price." + mode).map((b, i) => `<div><span>≤ ${Math.round(b[0] * 100)}%</span><input type="number" data-pband="${mode}:${i}" value="${b[1]}" step="1" aria-label="${label} points up to ${Math.round(b[0] * 100)}% of budget"></div>`).join("")}</div>`;
       }
     }
+    if (group === "Central location" && get(cfg, "points.centrality.kmBands")) {
+      h += `<div class="help" style="margin:4px 0">Outside London: points by distance from the centre</div><div class="bands">${get(cfg, "points.centrality.kmBands").map((b, i) => `<div><span>≤ ${b[0]} km</span><input type="number" data-kband="${i}" value="${b[1]}" step="1" aria-label="Points within ${b[0]} km of the centre"></div>`).join("")}</div>`;
+    }
     if (group === "Walk to station") {
       h += `<div class="bands">${get(cfg, "points.walk.bands").map((b, i) => `<div><span>≤ ${Math.round(b[0] * 100)}% of limit</span><input type="number" data-wband="${i}" value="${b[1]}" step="1" aria-label="Points within ${Math.round(b[0] * 100)}% of the walking limit"></div>`).join("")}</div>`;
     }
@@ -66,6 +73,10 @@ function renderControls() {
     set(cfg, el.dataset.path, v);
     $("controls").querySelectorAll(`[data-path="${el.dataset.path}"]`).forEach(o => { if (o !== el) o.value = v; });
     changed();
+  }));
+  $("controls").querySelectorAll("[data-kband]").forEach(el => el.addEventListener("input", () => {
+    const v = Number(el.value); if (Number.isNaN(v)) return;
+    get(cfg, "points.centrality.kmBands")[+el.dataset.kband][1] = v; changed();
   }));
   $("controls").querySelectorAll("[data-pband]").forEach(el => el.addEventListener("input", () => {
     const v = Number(el.value); if (Number.isNaN(v)) return;

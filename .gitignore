@@ -6,6 +6,7 @@ index.html
 data/listing_cache.json
 data/route_cache.json
 data/safety_cache.json
+data/city_centres.json
 
 # Phone-app relay: working files, and the link that makes this PC the one that runs phone searches.
 # Keep relay.json on one PC only, or two PCs could pick up the same search.
