@@ -85,14 +85,14 @@ Reply with ONLY this JSON (null where unknown):
  "budgetTotal": N (whole-stay upper limit; convert per-night budgets to total; "around X" -> X*1.05; "between X and Y" -> Y),
  "budgetMin": N or null (only for "between X and Y" -> X, or "around X" -> X*0.85),
  "priceMode": "cap" ("up to X", the default) | "cheaper" ("the less the better", "as cheap as possible") | "range" ("around X", "between X and Y", "X +- Y") | "strict" ("absolute max", "can't go over"),
- "currency": "ISO code (ils/shekels/₪ -> ILS)", "minBeds": N, "minBedrooms": N, "propertyType": "Entire place",
+ "currency": "ISO code of the currency the user names (ils/shekels/₪ -> ILS, €/euros -> EUR, £ -> GBP); USD if they name none", "minBeds": N, "minBedrooms": N, "propertyType": "Entire place",
  "entirePlace": true/false, "selfCheckIn": true/false, "amenities": [any of "wifi","kitchen","freeParking","washer","airConditioning","workspace","pool" that are REQUIRED],
  "maxWalkMin": N or null (transit walk limit; "near a station" -> 10), "transit": "tube|metro|train|null",
  "geography": {{"maxZone": N or null, "minZone": N or null, "preferCentral": true/false}},
  "safeAtNight": true/false, "preferReviews": true/false,
  "arrival": null or {{"place": "full airport/station name", "datetime": "YYYY-MM-DDTHH:MM", "type": "flight|train"}},
  "mustHaves": ["short labels"], "niceToHaves": ["short labels"], "assumptions": ["short notes on defaults you picked"]}}
-Rules: only place and dates are required. Default guests 2, entire place, currency from the place.
+Rules: only place and dates are required. Default guests 2, entire place, currency USD unless the user names one.
 An early-morning arrival (00:00-06:00) with no date means the night after check-in day (check-in Nov 28 + "land 1am" -> Nov 29 01:00).
 Sofa beds count as beds."""
 

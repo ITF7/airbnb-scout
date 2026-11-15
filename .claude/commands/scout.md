@@ -47,6 +47,7 @@ Rules:
 - If only nights + a window are given ("5 nights sometime in December"), ask which dates — Airbnb needs exact check-in/check-out to show totals.
 - Budget given per night → convert to total. `priceMode` from the wording: "up to X" → `cap` (default); "the less the better" / "as cheap as possible" → `cheaper`; "around X" / "between X and Y" / "X ± Y" → `range` with `budgetMin` (X × 0.85 for "around", the lower number for a range) and `budgetTotal` the upper end ("around X" → X × 1.05); "absolute max" / "can't go over" → `strict`. Pass `--price-mode <mode>` to every `scout_tools.py near` call.
 - Default `propertyType` to "Entire place" unless they say room/shared.
+- Default `currency` to USD unless the user names one (₪/shekels → ILS, €/euros → EUR, £ → GBP).
 - "Close to a train station" (or metro/U-Bahn/subway/tram) = nearest rail/metro station ≤ ~10 minutes walk.
 
 Print the parsed filters to chat as a compact bullet list (one line each) so the user can see how you interpreted them, then continue without waiting.
