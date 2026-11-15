@@ -54,7 +54,7 @@ def main():
     ]
     cf = tmp / "cards.json"
     cf.write_text(json.dumps({"results": cards}), encoding="utf-8")
-    near = run(st.cmd_near, SimpleNamespace(inp=str(cf), max_walk=10, max_zone=3, min_zone=0, budget=3000, min_beds=2, city="London", top=8))
+    near = run(st.cmd_near, SimpleNamespace(inp=str(cf), max_walk=10, max_zone=3, min_zone=0, budget=3000, min_beds=2, city="London", top=8, price_mode="cap"))
     ids = [r["id"] for r in near["open"]]
     check("pre-filter keeps the Leyton card", ids == ["a"], f"kept {ids}, dropped {near['dropped']}")
     check("pre-filter finds Leyton station", near["open"] and near["open"][0]["station"]["name"] == "Leyton")

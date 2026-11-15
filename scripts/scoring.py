@@ -70,7 +70,7 @@ def classify(c: dict, F: dict, cfg: dict, ctx: dict | None = None):
     if c.get("unavailable"):
         return "drop", ["Not available for your dates"], []
     if budget and tp:
-        if tp > budget * (1 + r.get("overBudgetNearMissUpTo", 0.05)):
+        if tp > budget * (1 + over_budget_allowance(F, cfg)):
             return "drop", ["Over budget"], []
         if tp > budget:
             reasons.append(f"{money(cur, tp - budget)} over budget")
@@ -139,6 +139,53 @@ def review_points(n, bands) -> float:
     return pts
 
 
+def price_mode(F: dict) -> str:
+    m = str(F.get("priceMode") or "cap").lower()
+    return m if m in ("cap", "cheaper", "range", "strict") else "cap"
+
+
+def over_budget_allowance(F: dict, cfg: dict) -> float:
+    o = cfg.get("rules", {}).get("overBudgetNearMissUpTo", 0.05)
+    if isinstance(o, dict):
+        return o.get(price_mode(F), o.get("cap", 0.05))
+    return 0.0 if price_mode(F) == "strict" else o  # older settings files
+
+
+def band_points(share, bands) -> float:
+    for limit, pts in sorted(bands, key=lambda b: b[0]):
+        if share <= limit + 1e-9:
+            return pts
+    return 0
+
+
+def smooth_band_points(share, bands) -> float:
+    """Band values at each step, blended in between, so small price differences still count (no cliffs)."""
+    b = sorted(bands, key=lambda x: x[0])
+    if share <= b[0][0]:
+        return b[0][1]
+    for (s0, p0), (s1, p1) in zip(b, b[1:]):
+        if share <= s1:
+            return p0 + (p1 - p0) * (share - s0) / (s1 - s0)
+    return 0
+
+
+def price_points(tp, F: dict, cfg: dict) -> float:
+    p = cfg["points"]["price"]
+    budget = F["budgetTotal"]
+    if "cap" not in p:  # older settings files
+        return p["max"] * min(1, max(0, (budget - tp) / (budget * p["fullAtShareUnderBudget"])))
+    if tp > budget:
+        return 0
+    mode = price_mode(F)
+    if mode == "range":
+        rg = p["range"]
+        low = F.get("budgetMin") or budget * rg.get("aroundMeansFromShare", 0.85)
+        if tp >= low:
+            return rg["insideRange"]
+        return smooth_band_points(tp / low, rg["belowRange"])
+    return smooth_band_points(tp / budget, p["cheaper" if mode == "cheaper" else "cap"])
+
+
 def walk_points(walk_min, limit, cfg) -> float:
     """Bands are shares of the request's walking limit, so '5 min max' and '30 min max' both work."""
     w = cfg["points"]["walk"]
@@ -174,8 +221,7 @@ def breakdown(c: dict, F: dict, cfg: dict) -> list[tuple[str, float]]:
     budget, tp = F.get("budgetTotal"), c.get("totalPrice")
     st = c.get("station") or {}
     if budget and tp:
-        p = P["price"]
-        out.append(("Price under budget", p["max"] * min(1, max(0, (budget - tp) / (budget * p["fullAtShareUnderBudget"])))))
+        out.append(("Price", price_points(tp, F, cfg)))
     if st.get("walkMin") is not None:
         out.append(("Walk to station", walk_points(st["walkMin"], F.get("maxWalkMin"), cfg)))
     n = c.get("reviews") or 0

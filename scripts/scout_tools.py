@@ -151,7 +151,7 @@ def cmd_near(a):
     cached = cache_get([str(c["id"]) for c in cards])
     keep, dropped = [], {"price": 0, "beds": 0, "walk": 0, "zone": 0}
     for c in cards:
-        if a.budget and c.get("total") and c["total"] > a.budget:
+        if a.budget and c.get("total") and c["total"] > a.budget * (1 + scoring.over_budget_allowance({"priceMode": a.price_mode}, scoring.load_config())):
             dropped["price"] += 1; continue
         if a.min_beds and c.get("beds") is not None and c["beds"] < a.min_beds:
             dropped["beds"] += 1; continue
@@ -165,7 +165,7 @@ def cmd_near(a):
                 dropped["zone"] += 1; continue
         pre = 0.0
         if a.budget and c.get("total"):
-            pre += 30 * min(1, max(0, (a.budget - c["total"]) / (a.budget * 0.4)))
+            pre += scoring.price_points(c["total"], {"budgetTotal": a.budget, "priceMode": a.price_mode}, scoring.load_config())
         pre += review_pts(c.get("reviews")) + dict(scoring.breakdown({"reviews": c.get("reviews"), "rating": c.get("rating")}, {}, scoring.load_config())).get("Star rating", 0)
         if st:
             pre += scoring.walk_points(st["walkMin"], a.max_walk or None, scoring.load_config())
@@ -433,6 +433,16 @@ def cmd_rank(a):
     else:
         a_route = None
 
+    # a price far below the rest of this search is often an error, a scam or a catch
+    prices = sorted(c["totalPrice"] for c in pool if c.get("totalPrice"))
+    share = cfg.get("rules", {}).get("muchCheaperFlagBelowMedianShare")
+    if share and len(prices) >= 4:
+        median = prices[len(prices) // 2]
+        for c in pool:
+            flag = "Much cheaper than similar places: check carefully"
+            if c.get("totalPrice") and c["totalPrice"] < median * share and flag not in (c.get("redFlags") or []):
+                c.setdefault("redFlags", []).append(flag)
+
     # points (config/scoring.json → points)
     for c in pool:
         c["score"] = scoring.score(c, F, cfg)
@@ -498,6 +508,7 @@ def main():
     n.add_argument("--min-zone", type=int, default=0); n.add_argument("--budget", type=float, default=0)
     n.add_argument("--min-beds", type=int, default=0); n.add_argument("--city", default="London")
     n.add_argument("--top", type=int, default=12)
+    n.add_argument("--price-mode", default="cap", help="cap | cheaper | range | strict (how far over budget is still worth keeping)")
     c = sub.add_parser("cache")
     c.add_argument("op", choices=["get", "put"]); c.add_argument("args", nargs="+")
     r = sub.add_parser("rank")

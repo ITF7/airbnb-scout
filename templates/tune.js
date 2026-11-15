@@ -7,7 +7,12 @@ let saved = null, cfg = null, timer = null;
 // What to show for each setting: [path, label, min, max, step]
 const FIELDS = {
   "Starting points": [["points.base", "Every listing starts with", 0, 30, 1]],
-  "Price": [["points.price.max", "Most points", 0, 60, 1], ["points.price.fullAtShareUnderBudget", "Full points when this far under budget", 0.05, 1, 0.05]],
+  "Price": [["points.price.range.insideRange", "'Around X': points anywhere inside the range", 0, 50, 1],
+            ["points.price.range.aroundMeansFromShare", "'Around X' starts at this share of X", 0.5, 1, 0.05],
+            ["rules.overBudgetNearMissUpTo.cap", "Near miss over budget, 'up to X'", 0, 0.3, 0.01],
+            ["rules.overBudgetNearMissUpTo.cheaper", "Near miss over budget, 'the less the better'", 0, 0.3, 0.01],
+            ["rules.overBudgetNearMissUpTo.range", "Near miss over budget, 'around X'", 0, 0.3, 0.01],
+            ["rules.muchCheaperFlagBelowMedianShare", "Flag places cheaper than this share of the typical price", 0, 1, 0.05]],
   "Walk to station": [["points.walk.fullWithinAtLeastMin", "Full points always within (min)", 0, 10, 1], ["points.walk.defaultLimitMin", "Limit when the request gives none (min)", 3, 30, 1]],
   "Number of reviews": [["points.reviewCount.multiplierIfUserPrefersReviews", "Multiplier when reviews matter", 1, 3, 0.1]],
   "Star rating": [["points.rating.neutralAt", "Neutral rating (no points)", 3.5, 5, 0.05], ["points.rating.perStarAbove", "Points per star above it", 0, 60, 1],
@@ -19,7 +24,7 @@ const FIELDS = {
   "Area safety": [["points.safety.calmer", "Calmer area", 0, 15, 1], ["points.safety.average", "Average area", -10, 10, 1], ["points.safety.busier", "Busier area", -15, 0, 1]],
   "Wishlist": [["points.wishlist", "On your wishlist", 0, 20, 1]],
   "Arrival time": [["points.arrival.max", "Most points", 0, 20, 1], ["points.arrival.fullWithinMin", "Full points within (min)", 0, 180, 5], ["points.arrival.losePointEveryMin", "Lose 1 point every (min)", 1, 60, 1]],
-  "Rules": [["rules.overBudgetNearMissUpTo", "Near miss if over budget by up to", 0, 0.3, 0.01], ["rules.walkNearMissUpToShare", "Near miss up to this share of the walking limit", 1, 3, 0.1],
+  "Rules": [["rules.walkNearMissUpToShare", "Near miss up to this share of the walking limit", 1, 3, 0.1],
             ["rules.nearMissBelowRating", "Can't be a pick if rated below (★)", 0, 5, 0.1],
             ["rules.keepMatches", "Picks to show", 1, 20, 1], ["rules.keepNearMisses", "Near misses to show", 0, 10, 1]]
 };
@@ -35,6 +40,11 @@ function renderControls() {
   for (const [group, fields] of Object.entries(FIELDS)) {
     h += `<div class="group"><b>${esc(group)}</b>`;
     if (HELP[group] && get(cfg, HELP[group])) h += `<div class="help">${esc(get(cfg, HELP[group]))}</div>`;
+    if (group === "Price") {
+      for (const [mode, label] of [["cap", "'Up to X'"], ["cheaper", "'The less the better'"]]) {
+        h += `<div class="help" style="margin:8px 0 4px">${label}: points by share of the budget</div><div class="bands">${get(cfg, "points.price." + mode).map((b, i) => `<div><span>≤ ${Math.round(b[0] * 100)}%</span><input type="number" data-pband="${mode}:${i}" value="${b[1]}" step="1" aria-label="${label} points up to ${Math.round(b[0] * 100)}% of budget"></div>`).join("")}</div>`;
+      }
+    }
     if (group === "Walk to station") {
       h += `<div class="bands">${get(cfg, "points.walk.bands").map((b, i) => `<div><span>≤ ${Math.round(b[0] * 100)}% of limit</span><input type="number" data-wband="${i}" value="${b[1]}" step="1" aria-label="Points within ${Math.round(b[0] * 100)}% of the walking limit"></div>`).join("")}</div>`;
     }
@@ -56,6 +66,10 @@ function renderControls() {
     set(cfg, el.dataset.path, v);
     $("controls").querySelectorAll(`[data-path="${el.dataset.path}"]`).forEach(o => { if (o !== el) o.value = v; });
     changed();
+  }));
+  $("controls").querySelectorAll("[data-pband]").forEach(el => el.addEventListener("input", () => {
+    const v = Number(el.value); if (Number.isNaN(v)) return;
+    const [mode, i] = el.dataset.pband.split(":"); get(cfg, "points.price." + mode)[+i][1] = v; changed();
   }));
   $("controls").querySelectorAll("[data-wband]").forEach(el => el.addEventListener("input", () => {
     const v = Number(el.value); if (Number.isNaN(v)) return;

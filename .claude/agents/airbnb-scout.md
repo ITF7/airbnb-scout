@@ -39,7 +39,7 @@ Run them exactly as written below, from the project folder you start in: `py -3 
 2. Save all cards (the raw `results` arrays) to `<output dir>/cards-<n>.json` with Write.
 3. Pre-filter with the script (London; it adds the nearest tube station, walk and zone from the coordinates, drops over-budget, too few beds, too far, wrong zone, and marks listings already in the cache):
    ```
-   py -3 scripts/scout_tools.py near --in <output dir>/cards-<n>.json --max-walk <maxWalkMin> --max-zone <maxZone> --budget <budgetTotal> --min-beds <minBeds> --top 8
+   py -3 scripts/scout_tools.py near --in <output dir>/cards-<n>.json --max-walk <maxWalkMin> --max-zone <maxZone> --budget <budgetTotal> --price-mode <priceMode> --min-beds <minBeds> --top 8
    ```
    Outside London add `--city "<city>"`: you get the same filtering without stations; judge transit from the area.
 4. From `open`, pick the **best 4–5** to verify (more only if several fail). Prefer more reviews, price headroom and a short walk. Never pick a card above the budget cap. Never rank by amenities.

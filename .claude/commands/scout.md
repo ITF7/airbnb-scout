@@ -21,6 +21,8 @@ Build this filter object (today's date is in your environment — resolve "next 
   "nights": 5,
   "guests": 2,
   "budgetTotal": 1000,
+  "budgetMin": null,
+  "priceMode": "cap",
   "currency": "USD",
   "minBeds": 2,
   "minBedrooms": null,
@@ -43,7 +45,7 @@ Build this filter object (today's date is in your environment — resolve "next 
 Rules:
 - Only **location** and **dates** (or a nights count + month) are required. If either is missing or ambiguous, ask ONE short question and stop. Everything else: pick a sensible default and record it in `assumptions`.
 - If only nights + a window are given ("5 nights sometime in December"), ask which dates — Airbnb needs exact check-in/check-out to show totals.
-- Budget given per night → convert to total. Budget phrased "around $X" → hard cap at X × 1.05 and note it.
+- Budget given per night → convert to total. `priceMode` from the wording: "up to X" → `cap` (default); "the less the better" / "as cheap as possible" → `cheaper`; "around X" / "between X and Y" / "X ± Y" → `range` with `budgetMin` (X × 0.85 for "around", the lower number for a range) and `budgetTotal` the upper end ("around X" → X × 1.05); "absolute max" / "can't go over" → `strict`. Pass `--price-mode <mode>` to every `scout_tools.py near` call.
 - Default `propertyType` to "Entire place" unless they say room/shared.
 - "Close to a train station" (or metro/U-Bahn/subway/tram) = nearest rail/metro station ≤ ~10 minutes walk.
 
