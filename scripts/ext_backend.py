@@ -139,15 +139,34 @@ def parse_request(query: str) -> dict:
         return {"needsInfo": f["needsInfo"], "costUSD": cost}
     if not (f.get("location") and f.get("checkin") and f.get("checkout")):
         return {"needsInfo": "Where are you going, and on which dates?", "costUSD": cost}
+    f["query"] = query
+    out = prepare(f)
+    out["costUSD"] = cost
+    return out
+
+
+def prepare(f: dict) -> dict:
+    """Check filters (from the AI or edited in the extension's form) and build the Airbnb search link."""
+    if not (f.get("location") and f.get("checkin") and f.get("checkout")):
+        return {"needsInfo": "Where are you going, and on which dates?"}
     try:
         f["nights"] = (date.fromisoformat(f["checkout"]) - date.fromisoformat(f["checkin"])).days
     except ValueError:
-        return {"needsInfo": "Which exact check-in and check-out dates?", "costUSD": cost}
-    if f.get("selfCheckIn") and not any("self" in m.lower() for m in f.get("mustHaves") or []):
-        f.setdefault("mustHaves", []).append("Self check-in")
-    f["query"] = query
-    run = f"ext_{re.sub(r'[^a-z0-9]+', '-', (f['location'] or 'trip').split(',')[0].lower()).strip('-')}_{datetime.now():%Y%m%d-%H%M%S}"
-    return {"run": run, "filters": f, "searchUrl": build_search_url(f), "costUSD": cost}
+        return {"needsInfo": "Which exact check-in and check-out dates?"}
+    if f["nights"] < 1:
+        return {"needsInfo": "Check-out needs to be after check-in."}
+    for k in ("guests", "minBeds", "minBedrooms", "budgetTotal", "budgetMin", "maxWalkMin"):
+        if f.get(k) in ("", 0):
+            f[k] = None
+    must = [m for m in (f.get("mustHaves") or []) if not re.search(r"self check|entire|whole place", m, re.I)]
+    if f.get("selfCheckIn"):
+        must.append("Self check-in")
+    if f.get("entirePlace", True):
+        must.append("Entire place")
+    f["mustHaves"] = must
+    f["propertyType"] = "Entire place" if f.get("entirePlace", True) else "Any"
+    run = f"ext_{re.sub(r'[^a-z0-9]+', '-', (f['location'] or 'trip').split(',')[0].lower()).strip('-') or 'trip'}_{datetime.now():%Y%m%d-%H%M%S}"
+    return {"run": run, "filters": f, "searchUrl": build_search_url(f)}
 
 
 # ---------------------------------------------------------------- 2. pre-filter

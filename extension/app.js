@@ -24,7 +24,7 @@ function step(text, state = "run") {
     set: (t) => { el.querySelector("span").textContent = t; }
   };
 }
-function setBusy(b) { S.busy = b; $("go").disabled = b; $("check").disabled = b; }
+function setBusy(b) { S.busy = b; $("go").disabled = b; $("check").disabled = b; $("searchBtn").disabled = b; }
 
 async function api(path, body) {
   let r;
@@ -88,18 +88,86 @@ async function closeTab() {
   if (S.tabId != null) { try { await chrome.tabs.remove(S.tabId); } catch (e) {} S.tabId = null; }
 }
 
-// ---------------------------------------------------------------- stage 1: understand + search results
-async function search(query) {
+// ---------------------------------------------------------------- stage 1a: understand the request → editable form
+async function understand(query) {
   setBusy(true);
-  Object.assign(S, { run: null, filters: null, cards: {}, pages: [], shortlist: null });
-  $("progress").hidden = false; $("shortlist").hidden = true; $("result").hidden = true;
-  $("steps").innerHTML = ""; $("filters").innerHTML = "";
+  $("progress").hidden = false; $("steps").innerHTML = ""; $("filters").innerHTML = "";
+  $("shortlist").hidden = true; $("result").hidden = true;
   try {
     const s1 = step("Understanding your request");
     const p = await api("parse", { query });
+    S.parseCost = p.costUSD || 0;
     if (p.needsInfo) { s1.err("Scout needs one more detail: " + p.needsInfo); $("q").focus(); return; }
-    Object.assign(S, { run: p.run, filters: p.filters, searchUrl: p.searchUrl, parseCost: p.costUSD || 0 });
-    s1.ok("Understood your request");
+    s1.ok("Understood. Check the details below, then press Search Airbnb.");
+    S.filters = p.filters;
+    fillForm(p.filters);
+    $("trip").hidden = false;
+    $("trip").scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (e) {
+    step(e.message, "err");
+  } finally {
+    setBusy(false);
+  }
+}
+
+// ---------------------------------------------------------------- form
+let mode = "cap";
+function setMode(m) { mode = m; document.querySelectorAll("[data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === m)); }
+function zoneVisibility() { $("zoneRow").hidden = !/london/i.test($("f-loc").value); }
+function walkLabel() { $("f-walkv").textContent = $("f-walk").value + " min"; $("f-walk").disabled = !$("f-walkon").checked; }
+
+function fillForm(f) {
+  $("f-loc").value = f.location || "";
+  $("f-in").value = f.checkin || ""; $("f-out").value = f.checkout || "";
+  $("f-guests").value = f.guests || 2; $("f-beds").value = f.minBeds || 1;
+  $("f-budget").value = f.budgetTotal ? Math.round(f.budgetTotal) : "";
+  const cur = (f.currency || "USD").toUpperCase();
+  if (![...$("f-cur").options].some(o => o.value === cur)) $("f-cur").add(new Option(cur, cur));
+  $("f-cur").value = cur;
+  setMode(f.priceMode === "strict" ? "cap" : (f.priceMode || "cap"));
+  $("f-entire").checked = f.entirePlace !== false;
+  $("f-self").checked = !!f.selfCheckIn;
+  $("f-reviews").checked = f.preferReviews !== false;
+  $("f-walkon").checked = !!f.maxWalkMin; $("f-walk").value = f.maxWalkMin || 10; walkLabel();
+  $("f-zone").value = (f.geography && f.geography.maxZone) ? String(f.geography.maxZone) : "";
+  zoneVisibility();
+  $("f-arrplace").value = (f.arrival && f.arrival.place) || "";
+  $("f-arrtime").value = (f.arrival && f.arrival.datetime) ? f.arrival.datetime.slice(0, 16) : "";
+  $("arrBox").open = !!(f.arrival && f.arrival.datetime);
+}
+
+function readForm() {
+  const f = JSON.parse(JSON.stringify(S.filters || {}));
+  const num = id => { const v = Number($(id).value); return $(id).value === "" || Number.isNaN(v) ? null : v; };
+  f.location = $("f-loc").value.trim();
+  f.checkin = $("f-in").value; f.checkout = $("f-out").value;
+  f.guests = num("f-guests") || 2; f.minBeds = num("f-beds") || null;
+  f.budgetTotal = num("f-budget"); f.currency = $("f-cur").value;
+  if (f.priceMode === "strict" && mode === "cap") { /* keep a strict cap from the request */ } else f.priceMode = mode;
+  if (mode === "range" && f.budgetTotal && !f.budgetMin) f.budgetMin = Math.round(f.budgetTotal * 0.85 / 1.05);
+  if (mode !== "range") f.budgetMin = null;
+  f.entirePlace = $("f-entire").checked; f.selfCheckIn = $("f-self").checked; f.preferReviews = $("f-reviews").checked;
+  f.maxWalkMin = $("f-walkon").checked ? Number($("f-walk").value) : null;
+  f.geography = Object.assign({ preferCentral: true }, f.geography || {}, { maxZone: $("f-zone").value ? Number($("f-zone").value) : null });
+  const place = $("f-arrplace").value.trim(), when = $("f-arrtime").value;
+  f.arrival = place && when ? Object.assign({ type: "flight" }, f.arrival || {}, { place, datetime: when }) : null;
+  if (!f.query) f.query = $("q").value.trim() || `${f.location}, ${f.checkin} to ${f.checkout}`;
+  return f;
+}
+
+// ---------------------------------------------------------------- stage 1b: search results
+async function startSearch() {
+  const f = readForm();
+  $("tripErr").textContent = "";
+  if (!f.location || !f.checkin || !f.checkout) { $("tripErr").textContent = "Add where you're going and both dates."; return; }
+  setBusy(true);
+  Object.assign(S, { cards: {}, pages: [], shortlist: null });
+  $("progress").hidden = false; $("shortlist").hidden = true; $("result").hidden = true;
+  if (!S.filters) $("steps").innerHTML = "";
+  try {
+    const p = await api("url", { filters: f });
+    if (p.needsInfo) { $("tripErr").textContent = p.needsInfo; return; }
+    Object.assign(S, { run: p.run, filters: p.filters, searchUrl: p.searchUrl });
     renderFilters(p.filters);
 
     const s2 = step("Opening the Airbnb search with your filters");
@@ -220,8 +288,24 @@ $("form").addEventListener("submit", e => {
   const q = $("q").value.trim().replace(/\s+/g, " ");
   if (!q) { $("q").focus(); return; }
   try { chrome.storage.local.set({ lastQuery: q }); } catch (err) {}
-  search(q);
+  understand(q);
 });
+$("manual").addEventListener("click", () => {
+  if (!S.filters) { S.filters = {}; fillForm({ guests: 2, minBeds: 1, currency: "USD", entirePlace: true, preferReviews: true }); }
+  $("trip").hidden = false; $("f-loc").focus();
+});
+$("trip").addEventListener("submit", e => { e.preventDefault(); if (!S.busy) startSearch(); });
+document.querySelectorAll("[data-mode]").forEach(b => b.addEventListener("click", () => setMode(b.dataset.mode)));
+document.querySelectorAll("[data-step]").forEach(b => b.addEventListener("click", () => {
+  const [id, d] = b.dataset.step.split(":"); const el = $(id);
+  el.value = Math.min(Number(el.max), Math.max(Number(el.min), (Number(el.value) || 0) + Number(d)));
+}));
+$("f-walk").addEventListener("input", walkLabel);
+$("f-walkon").addEventListener("change", walkLabel);
+$("f-loc").addEventListener("input", zoneVisibility);
+$("f-in").addEventListener("change", () => { if ($("f-out").value && $("f-out").value <= $("f-in").value) $("f-out").value = ""; $("f-out").min = $("f-in").value; });
+setMode("cap"); walkLabel();
+try { $("f-in").min = new Date().toISOString().slice(0, 10); } catch (e) {}
 $("q").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("form").requestSubmit(); } });
 $("check").addEventListener("click", () => { if (!S.busy) checkBest(); });
 try { chrome.storage.local.get("lastQuery", d => { if (d && d.lastQuery && !$("q").value) $("q").value = d.lastQuery; }); } catch (e) {}

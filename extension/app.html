@@ -48,6 +48,31 @@
   .done { background: var(--surface); border: 1px solid var(--red); border-radius: 12px; padding: 14px 16px; display: grid; gap: 8px; }
   a { color: var(--blue); }
   [hidden] { display: none !important; }
+  .linkbtn { background: none; border: 0; padding: 0; color: var(--blue); cursor: pointer; font-size: 13px; }
+  .trip { margin-top: 14px; gap: 14px; }
+  .trip-head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .grid .wide { grid-column: span 2; }
+  @media (max-width: 640px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .fld { display: grid; gap: 4px; min-width: 0; }
+  .fld > span, .fld > summary { color: var(--muted); font-size: 12px; }
+  .fld summary { cursor: pointer; }
+  input[type=text], input[type=date], input[type=datetime-local], input[type=number], select {
+    width: 100%; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 9px;
+    padding: 8px 10px; font: inherit; font-size: 14px; color-scheme: dark; }
+  input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+  .stepper { display: grid; grid-template-columns: 34px 1fr 34px; gap: 4px; }
+  .stepper button { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 9px; cursor: pointer; font-size: 16px; }
+  .stepper input { text-align: center; }
+  .seg { display: inline-flex; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 3px; flex-wrap: wrap; }
+  .seg button { background: none; border: 0; color: var(--muted); font-size: 13px; padding: 6px 10px; border-radius: 7px; cursor: pointer; }
+  .seg button.on { background: var(--blue-soft); color: #a9c4ff; }
+  .toggles { display: flex; gap: 8px 18px; flex-wrap: wrap; }
+  .tog { display: inline-flex; gap: 8px; align-items: center; font-size: 14px; cursor: pointer; }
+  .tog input { accent-color: var(--blue); width: 16px; height: 16px; }
+  input[type=range] { accent-color: var(--blue); flex: 1 1 160px; max-width: 260px; }
+  .mono { font-variant-numeric: tabular-nums; min-width: 52px; }
+  .row > select, .row > input[type=number] { width: auto; flex: none; }
 </style>
 </head>
 <body>
@@ -60,9 +85,56 @@
   <form class="box" id="form" autocomplete="off">
     <textarea id="q" placeholder="London, 28 Nov – 3 Dec 2026, 2 guests, 2 beds, entire place, tube ≤ 10 min, zone 3 max, ₪3,000 total, self check-in, landing LGW 1am on the 29th"></textarea>
     <div class="row">
-      <span class="hint" id="hint">Scout opens Airbnb in a tab of this browser and reads it like you would. It never books, messages hosts or signs in.</span>
-      <button class="btn" id="go" type="submit">Search</button>
+      <span class="hint" id="hint">Describe the stay in your own words. Scout fills in the details below for you to check. It never books, messages hosts or signs in.</span>
+      <span class="row" style="gap:12px;flex:none"><button class="linkbtn" id="manual" type="button">Fill in yourself</button><button class="btn" id="go" type="submit">Continue</button></span>
     </div>
+  </form>
+
+  <form class="box trip" id="trip" autocomplete="off" hidden>
+    <div class="trip-head"><b>Your search</b><span class="hint" id="tripHint">Check the details, change anything, then search.</span></div>
+    <div class="grid">
+      <label class="fld wide"><span>Where</span><input id="f-loc" type="text" placeholder="City, country" required></label>
+      <label class="fld"><span>Check-in</span><input id="f-in" type="date" required></label>
+      <label class="fld"><span>Check-out</span><input id="f-out" type="date" required></label>
+      <div class="fld"><span>Guests</span><div class="stepper"><button type="button" data-step="f-guests:-1" aria-label="Fewer guests">−</button><input id="f-guests" type="number" min="1" max="16" value="2" aria-label="Guests"><button type="button" data-step="f-guests:1" aria-label="More guests">+</button></div></div>
+      <div class="fld"><span>Beds (at least)</span><div class="stepper"><button type="button" data-step="f-beds:-1" aria-label="Fewer beds">−</button><input id="f-beds" type="number" min="0" max="10" value="1" aria-label="Beds"><button type="button" data-step="f-beds:1" aria-label="More beds">+</button></div></div>
+    </div>
+
+    <div class="fld"><span>Budget for the whole stay</span>
+      <div class="row" style="justify-content:flex-start">
+        <input id="f-budget" type="number" min="0" step="50" placeholder="No limit" style="width:140px" aria-label="Budget">
+        <select id="f-cur" aria-label="Currency"><option>ILS</option><option>USD</option><option>EUR</option><option>GBP</option></select>
+        <div class="seg" role="group" aria-label="Budget type">
+          <button type="button" data-mode="cap">Up to</button><button type="button" data-mode="range">Around</button><button type="button" data-mode="cheaper">Cheaper is better</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toggles">
+      <label class="tog"><input id="f-entire" type="checkbox" checked><span>Entire place to ourselves</span></label>
+      <label class="tog"><input id="f-self" type="checkbox"><span>Self check-in</span></label>
+      <label class="tog"><input id="f-reviews" type="checkbox" checked><span>Well-reviewed places first</span></label>
+    </div>
+
+    <div class="fld"><span>Near public transport</span>
+      <div class="row" style="justify-content:flex-start">
+        <label class="tog"><input id="f-walkon" type="checkbox"><span>Walk to a station at most</span></label>
+        <input id="f-walk" type="range" min="3" max="30" step="1" value="10" aria-label="Walking minutes"><b id="f-walkv" class="mono">10 min</b>
+      </div>
+      <div class="row" id="zoneRow" style="justify-content:flex-start" hidden>
+        <label class="tog" for="f-zone"><span>London tube zones up to</span></label>
+        <select id="f-zone"><option value="">Any</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select>
+      </div>
+    </div>
+
+    <details class="fld" id="arrBox"><summary>Arriving late or early? (optional)</summary>
+      <div class="grid" style="margin-top:8px">
+        <label class="fld wide"><span>Arriving at</span><input id="f-arrplace" type="text" placeholder="e.g. London Gatwick (LGW)"></label>
+        <label class="fld wide"><span>Landing / arrival time</span><input id="f-arrtime" type="datetime-local"></label>
+      </div>
+    </details>
+
+    <div class="row"><span class="hint" id="tripErr"></span><button class="btn" id="searchBtn" type="submit">Search Airbnb</button></div>
   </form>
 
   <section id="progress" hidden>

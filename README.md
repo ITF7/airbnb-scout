@@ -58,7 +58,7 @@ More examples:
 Try it:
 1. Start Scout on this PC (`start-scout.cmd`).
 2. In Chrome open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and pick the `extension` folder.
-3. Click the Scout icon in the toolbar. Type a request and press **Search**: Scout opens the Airbnb search with your filters, reads up to 4 pages and shows a shortlist.
+3. Click the Scout icon in the toolbar. Type a request and press **Continue**: Scout fills in a short form (where, dates, guests, beds, budget and how strict it is, entire place, self check-in, walking limit, London zones, arrival). Change anything, or skip the typing with **Fill in yourself**, then press **Search Airbnb**: Scout opens the Airbnb search with your filters, reads up to 4 pages and shows a shortlist.
 4. Press **Check the best 5**: Scout opens those listings one by one, then reads the descriptions and reviews, ranks them and opens the report.
 
 How it splits the work: the extension does the browsing (`extension/app.js`, using the same page-reading scripts as the scouts, copied into `extension/extract/`). The server does the thinking (`scripts/ext_backend.py`): it understands the request, builds the Airbnb link with Airbnb's own filters, shortlists, reads descriptions and reviews with a small model, and ranks with `scout_tools.py`.

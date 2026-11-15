@@ -713,6 +713,12 @@ class Handler(BaseHTTPRequestHandler):
                 if not query:
                     return self._json(400, {"error": "Type what you're looking for first."})
                 return self._json(200, ext_backend.parse_request(query))
+            if path == "/api/ext/url":
+                f = data.get("filters") or {}
+                if not isinstance(f, dict):
+                    return self._json(400, {"error": "Bad request"})
+                f["query"] = str(f.get("query") or "")[:MAX_QUERY]
+                return self._json(200, ext_backend.prepare(f))
             if path == "/api/ext/prefilter":
                 return self._json(200, ext_backend.prefilter(data.get("filters") or {}, data.get("cards") or [],
                                                              top=min(8, int(data.get("top") or 5))))
