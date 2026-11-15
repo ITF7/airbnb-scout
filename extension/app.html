@@ -169,8 +169,13 @@
     <div class="done" id="done"></div>
   </section>
 
-  <p class="note">Prototype. Needs Scout running on this PC (start-scout.cmd) for the AI step. Searches pace themselves like a person and read at most 4 result pages and 8 listings.</p>
+  <p class="note" id="aiLine" hidden></p>
+  <p class="note">Everything runs in this browser: no account, no server, nothing to pay. Scout reads at most 4 result pages and 8 listings per search, at a person's pace, and every booking happens on Airbnb.</p>
 </div>
+<script src="lib/scoring.js"></script>
+<script src="lib/geo.js"></script>
+<script src="lib/ai.js"></script>
+<script src="lib/rank.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

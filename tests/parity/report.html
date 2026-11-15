@@ -1,0 +1,15 @@
+<!doctype html><meta charset="utf-8"><title>report test</title>
+<script>
+window.chrome = { storage: { local: { get: async k => ({ [k]: JSON.parse(localStorage.getItem("rep")) }) } } };
+history.replaceState(null, "", "?run=test");
+</script>
+<link rel="stylesheet" href="data:text/css,">
+<body></body>
+<script>
+fetch("../../extension/report.html").then(r => r.text()).then(html => {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  document.head.appendChild(doc.querySelector("style"));
+  document.body.innerHTML = doc.body.innerHTML.replace(/<script[\s\S]*?<\/script>/g, "");
+  const s = document.createElement("script"); s.src = "../../extension/report.js"; document.body.appendChild(s);
+});
+</script>

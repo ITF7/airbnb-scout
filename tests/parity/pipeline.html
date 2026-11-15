@@ -1,0 +1,32 @@
+<!doctype html><meta charset="utf-8"><title>pipeline</title>
+<script>
+// stand-ins for the extension APIs (storage in memory, files from the repo)
+const mem = {};
+window.chrome = { runtime: { getURL: p => "../../extension/" + p },
+  storage: { local: { get: async k => Object.fromEntries([].concat(k).filter(x => x in mem).map(x => [x, mem[x]])), set: async o => Object.assign(mem, o) } } };
+</script>
+<script src="../../extension/lib/scoring.js"></script>
+<script src="../../extension/lib/geo.js"></script>
+<script src="../../extension/lib/ai.js"></script>
+<script src="../../extension/lib/rank.js"></script>
+<script>
+(async () => {
+  const run = "../../results/runs/london_2026-11-28_2026-12-03_20261107-2046/";
+  const cards = [].concat(await (await fetch(run + "cards-1.json")).json(), await (await fetch(run + "cards-2.json")).json()).flatMap(x => x.results || [x]);
+  const q = "London, 28/11 - 3/12/2026. Must be near a tube station (10 min walk max). Must have entire place to ourselves. 2 Guests, must have 2 beds. Decent neighborhoods (safe to walk at night). We'll be arriving at LGW at 1am on the 29th. Central as possible but zone 3 of the tube max. 3000 ils is budget cap, the less the better. Self check in a requirement as well.";
+  const f0 = AI.rulesParse(q, new Date("2026-11-15"));
+  const { filters: f } = Rank.prepare(f0);
+  const url = await Rank.searchUrl(f);
+  const sl = await Rank.shortlist(f, cards, 5);
+  const byId = Object.fromEntries(cards.map(c => [String(c.id), c]));
+  for (const r of sl.open) byId[r.id].station = r.station;
+  const s1 = await (await fetch(run + "scout-1.json")).json(), s2 = await (await fetch(run + "scout-2.json")).json();
+  const judged = [...s1.candidates, ...s2.candidates].filter(c => byId[c.id]).map(c => ({ ...c, station: undefined }));
+  const steps = [];
+  const rep = await Rank.rank(f, Object.fromEntries(sl.open.map(r => [r.id, byId[r.id]])), judged, [], t => steps.push(t));
+  localStorage.setItem("rep", JSON.stringify(rep));
+  window.RESULT = { url: url.slice(0, 160), cards: cards.length, kept: sl.kept, dropped: sl.dropped, open: sl.open.length, steps,
+    picks: rep.listings.map(l => [l.title.slice(0, 26), l.score, l.nearMiss ? "near: " + l.nearMissReason : "pick", (l.safety || {}).level, ((l.arrivalRoute || {}).transit || {}).arriveAt]) };
+  document.body.textContent = JSON.stringify(window.RESULT);
+})().catch(e => { window.RESULT = { error: String(e), stack: e.stack }; });
+</script>

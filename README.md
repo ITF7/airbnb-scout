@@ -51,17 +51,17 @@ More examples:
 - **Safety:** "safe to walk at night" compares police-recorded street crime around each shortlisted station (data.police.uk, England & Wales) and what guests say about the area at night.
 - **Self check-in, budget, beds** and similar go straight into Airbnb's own filters, so scouts only read listings that already fit.
 
-## Chrome extension (prototype)
+## Chrome extension
 
-`extension/` is the start of a version anyone can use: Scout runs as a Chrome extension and searches Airbnb **in the user's own browser**, only when they ask, at a person's pace (at most 4 result pages and 8 listings per search, in a visible tab). It never books, messages hosts, signs in or gets past bot checks. For now the AI step runs on this PC through the Scout server, on your Claude plan; nothing costs money.
+`extension/` is the version anyone can use. It runs **entirely in the user's own Chrome**: no Scout server, no PC left on, no Claude account, nothing to pay.
 
-Try it:
-1. Start Scout on this PC (`start-scout.cmd`).
-2. In Chrome open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and pick the `extension` folder.
-3. Click the Scout icon in the toolbar. Type a request and press **Continue**: Scout fills in a short form (where, dates, guests, beds, budget and how strict it is, entire place, self check-in, walking limit, London zones, arrival). Change anything, or skip the typing with **Fill in yourself**, then press **Search Airbnb**: Scout opens the Airbnb search with your filters, reads up to 4 pages and shows a shortlist.
-4. Press **Check the best 5**: Scout opens those listings one by one, then reads the descriptions and reviews, ranks them and opens the report.
+- **Browsing:** opens Airbnb in a visible tab, only when you press Search, at a person's pace (at most 4 result pages and 8 listings). It never books, messages hosts, signs in or gets past bot checks.
+- **Understanding requests and reading reviews:** Chrome's built-in AI, which runs on your computer. Chrome downloads it once (a few GB) after you press "Turn on Chrome's built-in AI". Until then, or on computers that can't run it, simple rules do the job.
+- **Scoring:** your points from `config/scoring.json` (copied to `extension/config/`), ported line for line to `extension/lib/scoring.js`. All 94 saved London listings score the same as the Python version.
+- **Public data, free, called from the browser:** London tube stations (bundled), police street crime (data.police.uk), TfL routes and city centres (OpenStreetMap).
+- **No personal data:** reviewer and host names are stripped on the page, and results stay in the browser.
 
-How it splits the work: the extension does the browsing (`extension/app.js`, using the same page-reading scripts as the scouts, copied into `extension/extract/`). The server does the thinking (`scripts/ext_backend.py`): it understands the request, builds the Airbnb link with Airbnb's own filters, shortlists, reads descriptions and reviews with a small model, and ranks with `scout_tools.py`.
+Try it: open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and pick the `extension` folder. Click the Scout icon, type a request and press **Continue**. Check the form (extras are under **More filters**), press **Search Airbnb**, then **Check the best 5**. The report opens in a new tab.
 
 ## Working on it from another computer
 

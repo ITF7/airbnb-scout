@@ -75,6 +75,11 @@ def main():
     ext = HERE.parent / "extension" / "extract"
     same = all((ext / n).exists() and (ext / n).read_bytes() == (HERE / "extract" / n).read_bytes() for n in ("search.js", "listing.js"))
     check("extension uses the same page-reading scripts", same, "" if same else "copy scripts/extract/*.js into extension/extract/")
+    pairs = [(HERE.parent / "config" / "scoring.json", HERE.parent / "extension" / "config" / "scoring.json"),
+             (HERE.parent / "data" / "london_tube_stations.json", HERE.parent / "extension" / "data" / "london_tube_stations.json")]
+    same2 = all(b.exists() and a.read_bytes() == b.read_bytes() for a, b in pairs)
+    check("extension uses the same scoring settings and station list", same2,
+          "" if same2 else "copy config/scoring.json and data/london_tube_stations.json into extension/")
 
     print("\nAll good." if not failures else f"\n{len(failures)} check(s) failed: {', '.join(failures)}")
     sys.exit(1 if failures else 0)

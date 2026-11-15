@@ -1,0 +1,196 @@
+{
+  "_about": "How Scout scores and filters listings. Every version of Scout reads this file. Edit the numbers, or use the tuning page (http://localhost:8787/tune) to try changes on a saved search first. Scores are clamped to 0-100.",
+  "points": {
+    "base": 10,
+    "price": {
+      "_help": "Points for the total price, set by how the request talks about money. `cap` = 'up to X' (the default), `cheaper` = 'the less the better', `range` = 'around X' or 'between X and Y'. Each band is [share of the budget, points]; prices between two steps get a blend of the two, so every saving counts a little. In `range` mode every price inside the range gets `insideRange`; prices below the range get the `belowRange` bands, measured against the bottom of the range, because much cheaper usually means a smaller or worse place.",
+      "cap": [
+        [
+          0.6,
+          25
+        ],
+        [
+          0.75,
+          20
+        ],
+        [
+          0.9,
+          12
+        ],
+        [
+          1.0,
+          5
+        ]
+      ],
+      "cheaper": [
+        [
+          0.6,
+          35
+        ],
+        [
+          0.75,
+          28
+        ],
+        [
+          0.9,
+          18
+        ],
+        [
+          1.0,
+          6
+        ]
+      ],
+      "range": {
+        "insideRange": 22,
+        "belowRange": [
+          [
+            0.75,
+            12
+          ],
+          [
+            1.0,
+            18
+          ]
+        ],
+        "aroundMeansFromShare": 0.85
+      }
+    },
+    "walk": {
+      "_help": "Walk to the nearest station, measured against the walking limit in the request (10 min if none is given). Each band is [share of the limit, points]: with a 10-minute limit, up to 5 min = +25, up to 7 = +18, up to 9 = +10, 10 = +4. Full points always cover at least `fullWithinAtLeastMin` minutes, because Airbnb blurs locations by about that much.",
+      "bands": [
+        [
+          0.5,
+          25
+        ],
+        [
+          0.7,
+          18
+        ],
+        [
+          0.9,
+          10
+        ],
+        [
+          1.0,
+          4
+        ]
+      ],
+      "fullWithinAtLeastMin": 3,
+      "defaultLimitMin": 10
+    },
+    "reviewCount": {
+      "_help": "How many reviews a place has is the main trust signal: a place with no reviews loses points, so it ranks below even a so-so place with 10 reviews. Each band is [at least this many reviews, points]. Multiplied when the request says reviews matter.",
+      "bands": [
+        [
+          0,
+          -10
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          14
+        ],
+        [
+          10,
+          22
+        ],
+        [
+          20,
+          28
+        ],
+        [
+          50,
+          35
+        ]
+      ],
+      "multiplierIfUserPrefersReviews": 1.2
+    },
+    "rating": {
+      "_help": "Airbnb ratings run high, so 4.5 counts as neutral. Above it a place earns `perStarAbove` per star (4.9 = +12); below it it loses `perStarBelow` per star (4.2 = -12, 4.0 = -20, 3.0 = -60). Only counts once a place has at least `minReviews` reviews.",
+      "neutralAt": 4.5,
+      "perStarAbove": 30,
+      "perStarBelow": 40,
+      "minReviews": 3
+    },
+    "reviewIssue": {
+      "_help": "Each recurring problem in the reviews (dirt, bugs, mould, noise, not as described...).",
+      "each": -5,
+      "maxTotal": -15
+    },
+    "seriousFlag": {
+      "_help": "Serious red flags: description contradicts the title, host on site in an 'entire place', scam or safety reports.",
+      "each": -10,
+      "maxTotal": -20
+    },
+    "redFlag": {
+      "_help": "Other red flags (minor concerns).",
+      "each": -4,
+      "maxTotal": -12
+    },
+    "centrality": {
+      "_help": "London uses tube zones; other cities use the straight-line distance from the city centre. Each distance band is [up to km, points]. Multiplied by how much the request cares: 'as central as possible' = `strong`, not mentioned = `default`, 'don't mind' or 'quiet suburbs' = `none`.",
+      "zone1": 8,
+      "zone2": 4,
+      "kmBands": [
+        [
+          2,
+          8
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          7,
+          2
+        ]
+      ],
+      "multiplier": {
+        "strong": 1.5,
+        "default": 0.5,
+        "none": 0
+      }
+    },
+    "safety": {
+      "_help": "Street crime around each listing's station, compared with the other listings in the same search (police data, England and Wales). Counts more when the request asks for a safe area. An area is only 'busier' if it has at least `busierIfTimesCalmest` times the street crime of the calmest place in the search (and 'calmer' only if the busiest has that much more), so a search full of safe areas doesn't get a scapegoat.",
+      "whenAsked": {
+        "calmer": 8,
+        "average": 0,
+        "busier": -8
+      },
+      "otherwise": {
+        "calmer": 3,
+        "average": 0,
+        "busier": -3
+      },
+      "busierIfTimesCalmest": 1.5
+    },
+    "wishlist": 5,
+    "arrival": {
+      "_help": "Late arrivals: a quicker airport-to-door trip earns up to `max`. Full points within `fullWithinMin`, losing 1 point every `losePointEveryMin` minutes after that.",
+      "max": 5,
+      "fullWithinMin": 60,
+      "losePointEveryMin": 15
+    }
+  },
+  "rules": {
+    "_help": "What drops a listing, and what makes it a near miss instead of a pick. `walkNearMissUpToShare`: a walk up to this share of the limit (1.6 = 16 min on a 10-minute limit) is a near miss, longer is dropped. `nearMissBelowRating`: a place rated under this (with enough reviews to count) can't be a pick. `muchCheaperFlagBelowMedianShare`: a place under this share of the typical price in the same search gets a 'check carefully' flag.",
+    "overBudgetNearMissUpTo": {
+      "_help": "How far over budget is still a near miss, per budget mode ('strict' = 'absolute max', 'no more than').",
+      "cap": 0.05,
+      "cheaper": 0.05,
+      "range": 0.1,
+      "strict": 0.0
+    },
+    "walkNearMissUpToShare": 1.6,
+    "nearMissBelowRating": 4.0,
+    "lateArrivalBeforeHour": 6,
+    "lateArrivalFromHour": 22,
+    "keepMatches": 8,
+    "keepNearMisses": 4,
+    "muchCheaperFlagBelowMedianShare": 0.5
+  }
+}

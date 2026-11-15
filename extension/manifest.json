@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Scout for Airbnb",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Describe the stay you want in plain words. Scout searches Airbnb in your own browser, checks the best listings and ranks them.",
   "action": { "default_title": "Open Scout" },
   "background": { "service_worker": "background.js" },
   "permissions": ["tabs", "scripting", "storage"],
-  "host_permissions": ["https://www.airbnb.com/*", "http://localhost:8787/*", "http://127.0.0.1:8787/*"]
+  "host_permissions": ["https://www.airbnb.com/*", "https://data.police.uk/*", "https://api.tfl.gov.uk/*", "https://nominatim.openstreetmap.org/*"]
 }

@@ -1,8 +1,8 @@
-// Scout for Airbnb — extension page. Browsing happens here, in the user's own browser, only when they ask;
-// the local Scout server does the AI and ranking. Read-only: never books, messages, signs in or solves bot checks.
+// Scout for Airbnb: extension page. Everything runs in the user's own browser, only when they ask: Airbnb is read in a
+// visible tab at a person's pace, the AI is Chrome's built-in model (or plain rules), and ranking uses Scout's points
+// (lib/*.js). No server, no account, nothing to pay. Read-only: never books, messages, signs in or solves bot checks.
 "use strict";
 
-const API = "http://localhost:8787/api/ext/";
 const MAX_PAGES = 4;          // result pages per search
 const MAX_CHECK = 8;          // listing pages per search
 const $ = id => document.getElementById(id);
@@ -10,7 +10,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const humanPause = (min, max) => sleep(min + Math.random() * (max - min));
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-const S = { run: null, filters: null, searchUrl: "", parseCost: 0, cards: {}, pages: [], shortlist: null, tabId: null, busy: false };
+const S = { run: null, filters: null, searchUrl: "", cards: {}, pages: [], shortlist: null, tabId: null, busy: false };
 
 // ---------------------------------------------------------------- UI helpers
 function step(text, state = "run") {
@@ -25,18 +25,6 @@ function step(text, state = "run") {
   };
 }
 function setBusy(b) { S.busy = b; $("go").disabled = b; $("check").disabled = b; $("searchBtn").disabled = b; }
-
-async function api(path, body) {
-  let r;
-  try {
-    r = await fetch(API + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  } catch (e) {
-    throw new Error("Can't reach Scout on this PC. Start it with start-scout.cmd and try again.");
-  }
-  const d = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(d.error || `Scout returned an error (${r.status}).`);
-  return d;
-}
 
 // ---------------------------------------------------------------- browser helpers
 function waitForLoad(tabId, timeout = 30000) {
@@ -95,12 +83,11 @@ async function understand(query) {
   $("shortlist").hidden = true; $("result").hidden = true;
   try {
     const s1 = step("Understanding your request");
-    const p = await api("parse", { query });
-    S.parseCost = p.costUSD || 0;
-    if (p.needsInfo) { s1.err("Scout needs one more detail: " + p.needsInfo); $("q").focus(); return; }
-    s1.ok("Understood. Check the details below, then press Search Airbnb.");
-    S.filters = p.filters;
-    fillForm(p.filters);
+    const f = await AI.parse(query);
+    const missing = !f.location ? "where you're going" : !(f.checkin && f.checkout) ? "your check-in and check-out dates" : "";
+    s1.ok(missing ? `Filled in what I could. Please add ${missing} below.` : "Understood. Check the details below, then press Search Airbnb.");
+    S.filters = f;
+    fillForm(f);
     $("trip").hidden = false;
     $("trip").scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (e) {
@@ -179,9 +166,12 @@ async function startSearch() {
   $("progress").hidden = false; $("shortlist").hidden = true; $("result").hidden = true;
   if (!S.filters) $("steps").innerHTML = "";
   try {
-    const p = await api("url", { filters: f });
+    const p = Rank.prepare(f);
     if (p.needsInfo) { $("tripErr").textContent = p.needsInfo; return; }
-    Object.assign(S, { run: p.run, filters: p.filters, searchUrl: p.searchUrl });
+    const url = await Rank.searchUrl(p.filters);
+    const run = `${(p.filters.location || "trip").split(",")[0].toLowerCase().replace(/[^a-z0-9]+/g, "-")}_${Date.now()}`;
+    Object.assign(S, { run, filters: p.filters, searchUrl: url });
+    p.searchUrl = url;
     renderFilters(p.filters);
 
     const s2 = step("Opening the Airbnb search with your filters");
@@ -206,7 +196,7 @@ async function startSearch() {
     }
 
     const s3 = step("Shortlisting by price, reviews and distance to transit");
-    const pf = await api("prefilter", { filters: S.filters, cards: Object.values(S.cards), top: 5 });
+    const pf = await Rank.shortlist(S.filters, Object.values(S.cards), 5);
     S.shortlist = pf;
     for (const r of pf.open) if (r.station && S.cards[r.id]) S.cards[r.id].station = r.station;
     s3.ok(`${pf.cards} listings found, ${pf.kept} fit your filters`);
@@ -244,15 +234,27 @@ async function checkBest() {
       si.ok(`Read ${x.title || card.name || id}`);
     }
     await closeTab();
-    const sr = step("Reading descriptions and reviews, ranking, safety and arrival routes (about a minute)");
-    const res = await api("finish", { run: S.run, filters: S.filters, searchUrl: S.searchUrl, parseCost: S.parseCost,
-                                      cards: S.cards, listings, pages: S.pages, cachedIds });
+    const ai = await AI.status();
+    const judged = [];
+    for (const x of listings) {
+      const sj = step(`Reading the description and reviews of ${x.title || x.id} (${ai})`);
+      const j = await AI.judge(x, f);
+      for (const k of ["totalPrice", "rating", "reviews", "image", "maxGuests"]) if (x[k] != null) j[k] = x[k];
+      judged.push(j);
+      sj.ok(`Read ${x.title || x.id}`);
+    }
+    const sr = step("Ranking with Scout's points");
+    const rep = await Rank.rank(f, S.cards, judged, cachedIds, t => step(t, "ok"));
+    rep.aiUsed = ai; rep.found = Object.keys(S.cards).length; rep.checked = listings.length + cachedIds.length;
+    await chrome.storage.local.set({ ["report:" + S.run]: rep });
+    const picks = rep.listings.filter(l => !l.nearMiss).length, near = rep.listings.length - picks;
     sr.ok("Ranked");
     $("result").hidden = false;
-    $("done").innerHTML = `<div><b>${res.matches}</b> match${res.matches === 1 ? "" : "es"}${res.nearMisses ? ` and ${res.nearMisses} near miss${res.nearMisses === 1 ? "" : "es"}` : ""}.</div>
-      ${res.report ? `<div><a href="${esc(res.report)}" target="_blank" rel="noopener">Open the report</a></div>` : ""}
-      <div class="hint">AI cost of this search: about $${Number(res.costUSD || 0).toFixed(3)} of plan usage.</div>`;
-    if (res.report) chrome.tabs.create({ url: res.report });
+    const reportUrl = chrome.runtime.getURL("report.html?run=" + encodeURIComponent(S.run));
+    $("done").innerHTML = `<div><b>${picks}</b> match${picks === 1 ? "" : "es"}${near ? ` and ${near} near miss${near === 1 ? "" : "es"}` : ""}.</div>
+      <div><a href="${esc(reportUrl)}" target="_blank" rel="noopener">Open the report</a></div>
+      <div class="hint">Read with ${esc(ai)}. Nothing was sent anywhere except Airbnb and the free public map, transport and police data services.</div>`;
+    chrome.tabs.create({ url: reportUrl });
   } catch (e) {
     step(e.message, "err");
     await closeTab();
@@ -326,3 +328,21 @@ try { $("f-in").min = new Date().toISOString().slice(0, 10); } catch (e) {}
 $("q").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("form").requestSubmit(); } });
 $("check").addEventListener("click", () => { if (!S.busy) checkBest(); });
 try { chrome.storage.local.get("lastQuery", d => { if (d && d.lastQuery && !$("q").value) $("q").value = d.lastQuery; }); } catch (e) {}
+
+// ---------------------------------------------------------------- Chrome's built-in AI: ask before the one-time download
+async function showAiLine() {
+  const line = $("aiLine"), state = await AI.chromeModelState();
+  if (state === "available") { line.hidden = false; line.textContent = "Reading with Chrome's built-in AI, on this computer."; return; }
+  if (state === "unavailable") { line.hidden = false; line.textContent = "Reading with simple rules: this Chrome doesn't offer its built-in AI."; return; }
+  line.hidden = false;
+  line.innerHTML = `Reading with simple rules for now. <button class="linkbtn" id="aiOn" type="button">Turn on Chrome's built-in AI</button> for better judging: Chrome downloads it once (a few GB), free, and it runs on this computer.`;
+  $("aiOn").addEventListener("click", async () => {
+    line.textContent = "Chrome is downloading its AI model… you can keep using Scout meanwhile.";
+    try {
+      await AI.enableChromeModel(p => { line.textContent = `Chrome is downloading its AI model… ${Math.round(p * 100)}%`; });
+      line.textContent = "Chrome's built-in AI is ready. Scout uses it from the next search.";
+    } catch (e) { line.textContent = "Chrome couldn't set up its AI here, so Scout keeps using simple rules."; }
+  });
+}
+showAiLine();
+
