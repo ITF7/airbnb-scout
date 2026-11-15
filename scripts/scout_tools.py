@@ -166,8 +166,7 @@ def cmd_near(a):
         pre = 0.0
         if a.budget and c.get("total"):
             pre += 30 * min(1, max(0, (a.budget - c["total"]) / (a.budget * 0.4)))
-        rp = scoring.load_config()["points"]["rating"]
-        pre += review_pts(c.get("reviews")) + (((c.get("rating") or 4) - 4) * rp["perStarAbove4"] if (c.get("reviews") or 0) >= rp["minReviews"] else 0)
+        pre += review_pts(c.get("reviews")) + dict(scoring.breakdown({"reviews": c.get("reviews"), "rating": c.get("rating")}, {}, scoring.load_config())).get("Star rating", 0)
         if st:
             pre += 25 * max(0, 1 - max(0, st["walkMin"] - 3) / max(1, (a.max_walk or 10) - 1))
             pre += {1: 8, 2: 4}.get(geo.zone_min(st["zone"]), 0)

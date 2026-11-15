@@ -10,7 +10,8 @@ const FIELDS = {
   "Price": [["points.price.max", "Most points", 0, 60, 1], ["points.price.fullAtShareUnderBudget", "Full points when this far under budget", 0.05, 1, 0.05]],
   "Walk to station": [["points.walk.max", "Most points", 0, 60, 1], ["points.walk.fullWithinMin", "Full points within (min)", 0, 15, 1]],
   "Number of reviews": [["points.reviewCount.multiplierIfUserPrefersReviews", "Multiplier when reviews matter", 1, 3, 0.1]],
-  "Star rating": [["points.rating.perStarAbove4", "Points per star above 4", 0, 30, 1], ["points.rating.minReviews", "Only counts from (reviews)", 0, 50, 1]],
+  "Star rating": [["points.rating.neutralAt", "Neutral rating (no points)", 3.5, 5, 0.05], ["points.rating.perStarAbove", "Points per star above it", 0, 60, 1],
+                  ["points.rating.perStarBelow", "Points lost per star below it", 0, 100, 1], ["points.rating.minReviews", "Only counts from (reviews)", 0, 50, 1]],
   "Problems in reviews": [["points.reviewIssue.each", "Each problem", -20, 0, 1], ["points.reviewIssue.maxTotal", "At most", -40, 0, 1]],
   "Serious red flags": [["points.seriousFlag.each", "Each flag", -40, 0, 1], ["points.seriousFlag.maxTotal", "At most", -60, 0, 1]],
   "Other red flags": [["points.redFlag.each", "Each flag", -20, 0, 1], ["points.redFlag.maxTotal", "At most", -40, 0, 1]],
@@ -19,6 +20,7 @@ const FIELDS = {
   "Wishlist": [["points.wishlist", "On your wishlist", 0, 20, 1]],
   "Arrival time": [["points.arrival.max", "Most points", 0, 20, 1], ["points.arrival.fullWithinMin", "Full points within (min)", 0, 180, 5], ["points.arrival.losePointEveryMin", "Lose 1 point every (min)", 1, 60, 1]],
   "Rules": [["rules.overBudgetNearMissUpTo", "Near miss if over budget by up to", 0, 0.3, 0.01], ["rules.walkNearMissExtraMin", "Near miss if walk is over the limit by up to (min)", 0, 20, 1],
+            ["rules.nearMissBelowRating", "Can't be a pick if rated below (★)", 0, 5, 0.1],
             ["rules.keepMatches", "Picks to show", 1, 20, 1], ["rules.keepNearMisses", "Near misses to show", 0, 10, 1]]
 };
 const HELP = { "Price": "points.price._help", "Walk to station": "points.walk._help", "Number of reviews": "points.reviewCount._help",

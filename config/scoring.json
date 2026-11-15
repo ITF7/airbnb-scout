@@ -43,8 +43,10 @@
       "multiplierIfUserPrefersReviews": 1.2
     },
     "rating": {
-      "_help": "Stars count once a place has at least `minReviews` reviews: (rating - 4) x `perStarAbove4`. So 4.9 earns +18, 4.5 earns +10 and 3.8 loses 4.",
-      "perStarAbove4": 20,
+      "_help": "Airbnb ratings run high, so 4.5 counts as neutral. Above it a place earns `perStarAbove` per star (4.9 = +12); below it it loses `perStarBelow` per star (4.2 = -12, 4.0 = -20, 3.0 = -60). Only counts once a place has at least `minReviews` reviews.",
+      "neutralAt": 4.5,
+      "perStarAbove": 30,
+      "perStarBelow": 40,
       "minReviews": 3
     },
     "reviewIssue": {
@@ -82,9 +84,10 @@
     }
   },
   "rules": {
-    "_help": "What drops a listing, and what makes it a near miss instead of a pick.",
+    "_help": "What drops a listing, and what makes it a near miss instead of a pick. `nearMissBelowRating`: a place rated under this (with enough reviews to count) can't be a pick.",
     "overBudgetNearMissUpTo": 0.05,
     "walkNearMissExtraMin": 6,
+    "nearMissBelowRating": 4.0,
     "prefilterWalkSlackMin": 3,
     "lateArrivalBeforeHour": 6,
     "lateArrivalFromHour": 22,

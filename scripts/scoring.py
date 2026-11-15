@@ -76,6 +76,9 @@ def classify(c: dict, F: dict, cfg: dict, ctx: dict | None = None):
             reasons.append(f"{money(cur, tp - budget)} over budget")
     if min_beds and c.get("beds") is not None and c["beds"] < min_beds:
         return "drop", ["Too few beds"], []
+    low = r.get("nearMissBelowRating")
+    if low and c.get("rating") and (c.get("reviews") or 0) >= cfg.get("points", {}).get("rating", {}).get("minReviews", 3) and c["rating"] < low:
+        reasons.append(f"Rated {c['rating']}★, below {low}★")
     ee = c.get("effectivelyEntire", True)
     if ee is False:
         return "drop", ["Shared, not the whole place"], []
@@ -156,8 +159,13 @@ def breakdown(c: dict, F: dict, cfg: dict) -> list[tuple[str, float]]:
     n = c.get("reviews") or 0
     rc = P["reviewCount"]
     out.append(("Number of reviews", review_points(n, rc["bands"]) * (rc["multiplierIfUserPrefersReviews"] if F.get("preferReviews", True) else 1)))
-    if n >= P["rating"]["minReviews"] and c.get("rating"):
-        out.append(("Star rating", (c["rating"] - 4) * P["rating"]["perStarAbove4"]))
+    rp = P["rating"]
+    if n >= rp["minReviews"] and c.get("rating"):
+        if "neutralAt" in rp:
+            d = c["rating"] - rp["neutralAt"]
+            out.append(("Star rating", d * (rp["perStarAbove"] if d >= 0 else rp["perStarBelow"])))
+        else:  # older settings files
+            out.append(("Star rating", (c["rating"] - 4) * rp["perStarAbove4"]))
     issues = len(c.get("reviewIssues") or [])
     if issues:
         out.append(("Problems in reviews", capped(issues, P["reviewIssue"]["each"], P["reviewIssue"]["maxTotal"])))
