@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Airbnb Scout</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%235b8def'/%3E%3Cstop offset='1' stop-color='%239b7bf0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='1' y='1' width='62' height='62' rx='16' fill='%23171a21'/%3E%3Cpath d='M32 9c-9.4 0-17 7.3-17 16.4C15 37.3 32 54 32 54s17-16.7 17-28.6C49 16.3 41.4 9 32 9z' fill='url(%23g)'/%3E%3Cpath d='M23.5 27.5 32 20.5l8.5 7V36a1.5 1.5 0 0 1-1.5 1.5H25a1.5 1.5 0 0 1-1.5-1.5z' fill='%230f1115'/%3E%3Ccircle cx='47' cy='15' r='6' fill='%23ef4444' stroke='%23171a21' stroke-width='3'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #0f1115; --surface: #171a21; --surface-2: #1f232c; --border: #2a2f3a;
+    --text: #e6e8ee; --muted: #8b93a7; --blue: #5b8def; --blue-soft: rgba(91,141,239,.14);
+    --purple: #9b7bf0; --purple-soft: rgba(155,123,240,.14); --red: #ef4444; --red-soft: rgba(239,68,68,.14);
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 Inter, "Segoe UI", system-ui, -apple-system, sans-serif; }
+  a { color: var(--blue); text-decoration: none; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 56px 16px 64px; }
+  .eyebrow { color: var(--muted); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; display: flex; gap: 8px; align-items: center; }
+  .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--purple); }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .logo { width: 44px; height: 44px; flex-shrink: 0; }
+  .wordmark { font-size: 20px; font-weight: 700; letter-spacing: -.01em; display: flex; flex-direction: column; line-height: 1.1; }
+  .wordmark small { font-size: 11px; font-weight: 500; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-top: 3px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 26px 0 6px; font-weight: 650; letter-spacing: -.015em; }
+  .sub { color: var(--muted); font-size: 15px; margin: 0 0 24px; }
+
+  .search { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+  .search-row { display: flex; gap: 10px; align-items: stretch; }
+  textarea { flex: 1; min-width: 0; resize: vertical; min-height: 54px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; font: inherit; font-size: 16px; line-height: 1.4; }
+  textarea:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
+  textarea::placeholder { color: var(--muted); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; font: inherit; font-size: 14px; font-weight: 600; padding: 0 20px; border-radius: 10px; background: var(--blue); color: #fff; border: 0; cursor: pointer; white-space: nowrap; }
+  .btn:hover { filter: brightness(1.08); }
+  .search-foot { margin-top: 10px; font-size: 12px; color: var(--muted); }
+  .toast { color: var(--purple); font-weight: 600; }
+  .toast.err { color: var(--red); }
+  .examples { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .ex { font: inherit; font-size: 12px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); cursor: pointer; }
+  .ex:hover { border-color: var(--purple); color: #cdbcff; }
+
+  .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 18px 0 0; }
+  .step { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; font-size: 13px; color: var(--muted); }
+  .step b { display: block; color: var(--text); font-size: 13px; margin-bottom: 2px; }
+  .step i { font-style: normal; color: var(--purple); font-weight: 700; margin-right: 6px; }
+
+  h2 { font-size: 16px; font-weight: 600; margin: 40px 0 12px; display: flex; gap: 10px; align-items: center; }
+  h2 .count { font-size: 12px; color: var(--muted); font-weight: 400; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; }
+  .runs { display: grid; gap: 10px; }
+  .run { display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; color: var(--text); transition: border-color .15s; }
+  .run:hover { border-color: #3a4150; }
+  .run .t { font-weight: 600; font-size: 15px; }
+  .run .q { color: var(--muted); font-size: 13px; grid-column: 1 / -1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .run .m { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .pill { font-size: 12px; padding: 2px 9px; border-radius: 999px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+  .pill.ok { background: var(--blue-soft); color: var(--blue); }
+  .pill.none { background: var(--red-soft); color: var(--red); }
+  .pill.price { background: var(--purple-soft); color: #cdbcff; }
+  .empty { padding: 28px 16px; text-align: center; color: var(--muted); background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius); }
+
+  .btn:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .mode { display: inline-flex; align-items: center; gap: 6px; }
+  .mode .d { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+  .mode.live .d { background: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
+
+  /* Live progress */
+  .job { margin-top: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; display: none; }
+  .job.show { display: block; }
+  .job.err { border-color: rgba(239,68,68,.5); }
+  .job-head { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+  .job-title { font-weight: 600; font-size: 15px; display: flex; gap: 10px; align-items: center; }
+  .spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--blue-soft); border-top-color: var(--blue); animation: spin .9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .job-time { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .ghost { font: inherit; font-size: 13px; font-weight: 600; background: none; border: 1px solid rgba(239,68,68,.45); color: #fca5a5; border-radius: 9px; padding: 6px 12px; cursor: pointer; }
+  .ghost:hover { background: var(--red-soft); }
+  .job-q { color: var(--muted); font-size: 13px; margin-top: 6px; }
+  .job-filters { margin-top: 10px; font-size: 13px; color: #cdbcff; background: var(--purple-soft); border-radius: 8px; padding: 8px 10px; display: none; }
+  .scouts { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; margin-top: 14px; }
+  .scout { background: var(--surface-2); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+  .scout .n { font-size: 13px; font-weight: 600; display: flex; gap: 7px; align-items: center; }
+  .scout .n .d { width: 7px; height: 7px; border-radius: 50%; background: var(--blue); animation: pulse 1.4s ease-in-out infinite; flex-shrink: 0; }
+  .scout.done .n .d { background: var(--purple); animation: none; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .scout .l { font-size: 12px; color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .log { margin-top: 14px; display: grid; gap: 3px; font-size: 12px; color: var(--muted); max-height: 180px; overflow: auto; }
+  .log div { display: flex; gap: 10px; }
+  .log span.t { font-variant-numeric: tabular-nums; min-width: 44px; color: #5f6677; }
+  .log b { color: var(--text); font-weight: 500; }
+  .job-msg { margin-top: 12px; font-size: 14px; }
+  .job-msg.red { color: var(--red); font-weight: 500; }
+  .job-msg a { font-weight: 600; }
+
+  @media (max-width: 600px) {
+    h1 { font-size: 26px; }
+    .wrap { padding-top: 32px; }
+    .search-row { flex-direction: column; }
+    .btn { padding: 12px 20px; }
+    .steps { grid-template-columns: 1fr; }
+    .run { grid-template-columns: 1fr; }
+    .run .m { justify-content: flex-start; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="scoutPin" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b8def"/><stop offset="1" stop-color="#9b7bf0"/></linearGradient></defs><rect x="1" y="1" width="62" height="62" rx="16" fill="#171a21" stroke="#2a2f3a" stroke-width="2"/><path d="M32 9c-9.4 0-17 7.3-17 16.4C15 37.3 32 54 32 54s17-16.7 17-28.6C49 16.3 41.4 9 32 9z" fill="url(#scoutPin)"/><path d="M23.5 27.5 32 20.5l8.5 7V36a1.5 1.5 0 0 1-1.5 1.5H25a1.5 1.5 0 0 1-1.5-1.5z" fill="#0f1115"/><rect x="29.5" y="30.5" width="5" height="7" rx="1" fill="url(#scoutPin)"/><circle cx="47" cy="15" r="6" fill="#ef4444" stroke="#171a21" stroke-width="3"/></svg>
+    <span class="wordmark">Scout<small>for Airbnb</small></span>
+  </div>
+  <h1>Where to next?</h1>
+  <p class="sub">Describe the stay the way you'd say it to a friend. Up to 4 scouts search Airbnb and rank what fits.</p>
+
+  <form class="search" id="search" autocomplete="off">
+    <div class="search-row">
+      <textarea id="q" rows="2" placeholder="5 nights in Munich from Dec 10, $1000 total, at least 2 beds, close to a train station"></textarea>
+      <button class="btn" type="submit">Search</button>
+    </div>
+    <div class="search-foot" id="hint">Copies a <b>/scout</b> command. Paste it into Claude Code to run the search.</div>
+    <div class="search-foot"><span class="mode" id="mode"><span class="d"></span><span id="modeText">Offline: copy mode</span></span></div>
+    <div class="examples">
+      <button type="button" class="ex">Lisbon, Mar 3–8, 4 adults, under €1500, 2 bedrooms, near metro</button>
+      <button type="button" class="ex">Vienna weekend Jan 16–18, max $120/night, superhost</button>
+      <button type="button" class="ex">Kyoto, a week from Apr 1, 3 people, $2000, near a JR station</button>
+      <button type="button" class="ex">London Nov 28–Dec 3, 2 beds, ₪2,400, near the tube, landing at Gatwick 1am</button>
+    </div>
+  </form>
+
+  <section class="job" id="job" aria-live="polite">
+    <div class="job-head">
+      <div class="job-title"><span class="spin" id="jobSpin"></span><span id="jobTitle">Searching Airbnb…</span></div>
+      <div style="display:flex;gap:12px;align-items:center"><span class="job-time" id="jobTime">0:00</span><button class="ghost" id="cancel" type="button">Cancel</button></div>
+    </div>
+    <div class="job-q" id="jobQ"></div>
+    <div class="job-filters" id="jobFilters"></div>
+    <div class="scouts" id="scouts"></div>
+    <div class="job-msg" id="jobMsg"></div>
+    <div class="log" id="log"></div>
+  </section>
+
+  <div class="steps" id="steps">
+    <div class="step"><b><i>1</i>Describe</b>Dates, place, budget, must-haves.</div>
+    <div class="step"><b><i>2</i>Paste</b>Into Claude Code and press Enter.</div>
+    <div class="step"><b><i>3</i>Review</b>The report opens here when done.</div>
+  </div>
+
+  <h2>Past searches <span class="count" id="count">0</span></h2>
+  <div class="runs" id="runs"></div>
+</div>
+
+<script>
+window.RUNS = /*DATA_START*/[]/*DATA_END*/;
+</script>
+<script>
+(function () {
+  const runs = Array.isArray(window.RUNS) ? window.RUNS : [];
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const money = (n, c) => n == null ? null : new Intl.NumberFormat(undefined, { style: "currency", currency: c || "USD", maximumFractionDigits: 0 }).format(n);
+  const date = d => { const x = new Date((d || "") + "T00:00:00"); return isNaN(x) ? (d || "?") : x.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }); };
+
+  const list = document.getElementById("runs");
+  document.getElementById("count").textContent = runs.length;
+  runs.sort((a, b) => String(b.generatedAt || "").localeCompare(String(a.generatedAt || "")));
+  list.innerHTML = runs.length ? runs.map(r => `
+    <a class="run" href="${esc(r.file)}">
+      <div class="t">${esc(r.city || "Search")} · ${date(r.checkin)} – ${date(r.checkout)}</div>
+      <div class="m">
+        <span class="pill ${r.matches ? "ok" : "none"}">${r.matches} match${r.matches === 1 ? "" : "es"}</span>
+        ${r.nearMisses ? `<span class="pill">${r.nearMisses} near miss${r.nearMisses === 1 ? "" : "es"}</span>` : ""}
+        ${r.cheapest != null ? `<span class="pill price">from ${money(r.cheapest, r.currency)}</span>` : ""}
+        ${r.budget != null ? `<span class="pill">budget ${money(r.budget, r.currency)}</span>` : ""}
+      </div>
+      ${r.query ? `<div class="q">“${esc(r.query)}”</div>` : ""}
+    </a>`).join("") : `<div class="empty">No searches yet. Your first report will show up here.</div>`;
+
+  const form = document.getElementById("search");
+  const q = document.getElementById("q");
+  const hint = document.getElementById("hint");
+  let hintHtml = hint.innerHTML;
+  const fallbackCopy = t => {
+    const ta = document.createElement("textarea");
+    ta.value = t; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    let ok = false; try { ok = document.execCommand("copy"); } catch (e) {}
+    ta.remove(); return ok;
+  };
+  const copy = t => (navigator.clipboard && navigator.clipboard.writeText)
+    ? navigator.clipboard.writeText(t).then(() => true, () => fallbackCopy(t))
+    : Promise.resolve(fallbackCopy(t));
+  const flash = (html, err) => {
+    hint.innerHTML = `<span class="toast${err ? " err" : ""}">${html}</span>`;
+    clearTimeout(flash.t); flash.t = setTimeout(() => { hint.innerHTML = hintHtml; }, 4000);
+  };
+  q.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); } });
+  document.querySelectorAll(".ex").forEach(b => b.addEventListener("click", () => { q.value = b.textContent; q.focus(); }));
+  // ---- Live mode (served by server.py) vs copy mode (opened as a file) ----
+  let live = false, polling = null;
+  const $ = id => document.getElementById(id);
+  const btn = form.querySelector("button[type=submit]");
+  const fmt = s => Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+
+  const params = new URLSearchParams(location.search);
+  if (params.get("q")) q.value = params.get("q");
+
+  if (location.protocol.startsWith("http")) {
+    fetch("/api/health").then(r => r.json()).then(h => {
+      if (!h.ok) return;
+      live = true;
+      $("mode").classList.add("live");
+      $("modeText").textContent = h.claude ? "Live: searches run on your Claude plan" : "Server running, but Claude Code isn't installed (see README)";
+      hint.innerHTML = "Press <b>Search</b> and the scouts start. Progress shows below.";
+      hintHtml = hint.innerHTML;
+      $("steps").innerHTML = '<div class="step"><b><i>1</i>Describe</b>Dates, place, budget, must-haves.</div><div class="step"><b><i>2</i>Wait</b>Up to 4 scouts search Airbnb (a few minutes).</div><div class="step"><b><i>3</i>Review</b>The report opens by itself.</div>';
+      pollOnce();
+    }).catch(() => {});
+  }
+
+  function renderJob(j) {
+    const box = $("job");
+    if (!j) { box.classList.remove("show"); return; }
+    box.classList.add("show");
+    const running = j.status === "starting" || j.status === "running";
+    box.classList.toggle("err", j.status === "error" || j.status === "needs_info");
+    $("jobSpin").style.display = running ? "" : "none";
+    $("cancel").style.display = running ? "" : "none";
+    $("jobTitle").textContent = { starting: "Starting…", running: "Searching Airbnb…", done: "Done", needs_info: "Need a bit more info", error: "Something went wrong", cancelled: "Cancelled" }[j.status] || j.status;
+    $("jobTime").textContent = fmt(j.elapsed || 0);
+    $("jobQ").textContent = "“" + j.query + "”";
+    $("jobFilters").style.display = j.filters ? "block" : "none";
+    $("jobFilters").textContent = j.filters;
+    $("scouts").innerHTML = (j.scouts || []).map(s => `<div class="scout ${s.state === "done" ? "done" : ""}"><div class="n"><span class="d"></span>${esc(s.name)}</div><div class="l">${esc(s.last)}</div></div>`).join("");
+    const msg = $("jobMsg");
+    msg.className = "job-msg";
+    if (j.status === "done") msg.innerHTML = `Report ready. <a href="/${esc(j.report)}">Open it</a>`;
+    else if (j.status === "needs_info") { msg.classList.add("red"); msg.textContent = j.question + " Add it to your search and press Search again."; }
+    else if (j.status === "error") { msg.classList.add("red"); msg.textContent = j.error || "The search failed."; }
+    else msg.textContent = "";
+    const log = $("log");
+    log.innerHTML = (j.events || []).slice(-12).reverse().map(e => `<div><span class="t">${fmt(Math.round(e.t))}</span><span>${e.scout ? "<b>" + esc(e.scout) + "</b> · " : ""}${esc(e.text)}</span></div>`).join("");
+    btn.disabled = running;
+    btn.textContent = running ? "Searching…" : "Search";
+  }
+
+  let seenDone = null;
+  function pollOnce() {
+    return fetch("/api/job").then(r => r.json()).then(({ job }) => {
+      renderJob(job);
+      const running = job && (job.status === "starting" || job.status === "running");
+      if (running && !polling) polling = setInterval(pollOnce, 1500);
+      if (!running && polling) { clearInterval(polling); polling = null; }
+      if (job && job.status === "done" && seenDone === false) location.href = "/" + job.report;
+      seenDone = job && job.status === "done" ? (seenDone ?? true) : false;
+    }).catch(() => {});
+  }
+
+  $("cancel").addEventListener("click", () => fetch("/api/cancel", { method: "POST" }).then(pollOnce));
+
+  form.addEventListener("submit", e => {
+    e.preventDefault();
+    const text = q.value.trim().replace(/\s+/g, " ");
+    if (!text) { flash("Type what you're looking for first.", true); q.focus(); return; }
+    if (live) {
+      btn.disabled = true;
+      fetch("/api/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: text }) })
+        .then(r => r.json().then(b => ({ ok: r.ok, b })))
+        .then(({ ok, b }) => {
+          if (!ok) { btn.disabled = false; flash(esc(b.error || "Couldn't start the search."), true); return; }
+          seenDone = false;
+          renderJob(b.job);
+          if (!polling) polling = setInterval(pollOnce, 1500);
+        })
+        .catch(() => { btn.disabled = false; flash("The server stopped. Start it again with start-scout.cmd.", true); });
+      return;
+    }
+    const cmd = "/scout " + text;
+    copy(cmd).then(ok => ok
+      ? flash("Copied. Paste it into Claude Code and press Enter.")
+      : flash("Couldn't copy automatically. Select the text and copy it: " + cmd.replace(/[<>&]/g, ""), true));
+  });
+})();
+</script>
+</body>
+</html>

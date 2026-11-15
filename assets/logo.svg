@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Scout">
+  <defs>
+    <linearGradient id="scoutPin" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5b8def"/>
+      <stop offset="1" stop-color="#9b7bf0"/>
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="62" height="62" rx="16" fill="#171a21" stroke="#2a2f3a" stroke-width="2"/>
+  <path d="M32 9c-9.4 0-17 7.3-17 16.4C15 37.3 32 54 32 54s17-16.7 17-28.6C49 16.3 41.4 9 32 9z" fill="url(#scoutPin)"/>
+  <path d="M23.5 27.5 32 20.5l8.5 7V36a1.5 1.5 0 0 1-1.5 1.5H25a1.5 1.5 0 0 1-1.5-1.5z" fill="#0f1115"/>
+  <rect x="29.5" y="30.5" width="5" height="7" rx="1" fill="url(#scoutPin)"/>
+  <circle cx="47" cy="15" r="6" fill="#ef4444" stroke="#171a21" stroke-width="3"/>
+</svg>

@@ -1,0 +1,479 @@
+<title>Scout for Airbnb</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  /* Layout: one narrow column (phone first) — search, PC status, live searches, history; a report view replaces it. */
+  :root {
+    --bg: #0f1115; --surface: #171a21; --surface-2: #1f232c; --border: #2a2f3a;
+    --text: #e6e8ee; --muted: #8b93a7; --faint: #5f6677;
+    --blue: #5b8def; --blue-soft: rgba(91,141,239,.14); --blue-text: #a9c4ff;
+    --purple: #9b7bf0; --purple-soft: rgba(155,123,240,.14); --purple-text: #cdbcff;
+    --red: #ef4444; --red-soft: rgba(239,68,68,.14); --red-text: #fca5a5;
+    --green: #34d399; --on-accent: #ffffff;
+    --font: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+    --radius: 12px;
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+    --bg: #f5f6fa; --surface: #ffffff; --surface-2: #eef0f5; --border: #dde1ea;
+    --text: #161922; --muted: #5d6578; --faint: #8b93a7;
+    --blue: #2f6fe0; --blue-soft: rgba(47,111,224,.10); --blue-text: #2a5fc0;
+    --purple: #7a55e6; --purple-soft: rgba(122,85,230,.10); --purple-text: #5b3dc4;
+    --red: #dc2626; --red-soft: rgba(220,38,38,.09); --red-text: #b91c1c;
+    --green: #059669; color-scheme: light; } }
+  :root[data-theme="light"] {
+    --bg: #f5f6fa; --surface: #ffffff; --surface-2: #eef0f5; --border: #dde1ea;
+    --text: #161922; --muted: #5d6578; --faint: #8b93a7;
+    --blue: #2f6fe0; --blue-soft: rgba(47,111,224,.10); --blue-text: #2a5fc0;
+    --purple: #7a55e6; --purple-soft: rgba(122,85,230,.10); --purple-text: #5b3dc4;
+    --red: #dc2626; --red-soft: rgba(220,38,38,.09); --red-text: #b91c1c;
+    --green: #059669; color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.5 var(--font); }
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  button { font: inherit; }
+  :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+  .wrap { max-width: 760px; margin: 0 auto; padding-block: 20px 56px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand svg { width: 30px; height: 30px; flex-shrink: 0; }
+  .brand b { font-size: 16px; font-weight: 650; letter-spacing: -.01em; }
+  .brand span { color: var(--muted); font-size: 13px; }
+  h1 { font-size: 26px; line-height: 1.2; margin: 22px 0 12px; font-weight: 650; letter-spacing: -.015em; text-wrap: balance; }
+
+  .search { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; display: grid; gap: 10px; }
+  .search textarea { width: 100%; min-height: 92px; resize: vertical; background: var(--surface-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; font: inherit; line-height: 1.45; }
+  .search textarea:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
+  .search textarea::placeholder { color: var(--muted); }
+  .row { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+  .hint { font-size: 12px; color: var(--muted); min-width: 0; flex: 1 1 220px; }
+  .hint.err { color: var(--red-text); }
+  .hint.ok { color: var(--purple-text); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--blue); color: var(--on-accent);
+    border: 0; border-radius: 10px; padding: 10px 16px; font-weight: 600; font-size: 14px; cursor: pointer; white-space: nowrap; }
+  .btn:hover { filter: brightness(1.08); text-decoration: none; }
+  .btn:disabled { opacity: .5; cursor: default; filter: none; }
+  .btn.ghost { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+  .btn svg { width: 14px; height: 14px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+  .chip:hover { border-color: var(--blue); }
+  .chip.static { cursor: default; }
+  .chip.static:hover { border-color: var(--border); }
+  .chip.must { background: var(--purple-soft); border-color: transparent; color: var(--purple-text); }
+  .chip.assume { color: var(--muted); border-style: dashed; }
+  .chip.arrive { background: var(--blue-soft); border-color: transparent; color: var(--blue-text); }
+
+  .pc { display: flex; gap: 10px; align-items: center; margin-top: 12px; font-size: 13px; color: var(--muted); }
+  .pc i { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex-shrink: 0; }
+  .pc.on i { background: var(--green); }
+  .pc.off i { background: var(--red); }
+
+  h2 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin: 28px 0 10px; }
+  .list { display: grid; gap: 10px; }
+  .item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; display: grid; gap: 8px; min-width: 0; }
+  .item.click { cursor: pointer; }
+  .item.click:hover { border-color: var(--blue); }
+  .item .top { display: flex; gap: 10px; align-items: baseline; justify-content: space-between; }
+  .item .city { font-weight: 600; font-size: 15px; }
+  .item .when { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .item .q { color: var(--muted); font-size: 13px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+  .item .meta { display: flex; gap: 8px 14px; flex-wrap: wrap; font-size: 13px; align-items: center; }
+  .item .meta b { font-weight: 600; }
+  .pill { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
+  .pill.queued { background: var(--surface-2); color: var(--muted); }
+  .pill.running { background: var(--blue-soft); color: var(--blue-text); }
+  .pill.done { background: var(--purple-soft); color: var(--purple-text); }
+  .pill.needs_info, .pill.error, .pill.cancelled { background: var(--red-soft); color: var(--red-text); }
+  .progress { font-size: 13px; display: flex; gap: 8px; align-items: center; }
+  .spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--blue-soft); border-top-color: var(--blue); animation: spin 1s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+  .scouts { display: flex; gap: 6px; flex-wrap: wrap; }
+  .scout { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
+  .scout.done { color: var(--green); }
+  .ask { font-size: 13px; color: var(--red-text); }
+  .linkbtn { background: none; border: 0; padding: 0; color: var(--blue); cursor: pointer; font-size: 13px; }
+  .linkbtn.del { color: var(--muted); }
+  .empty { padding: 26px 18px; text-align: center; color: var(--muted); background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius); font-size: 14px; }
+  .note { font-size: 12px; color: var(--muted); margin-top: 18px; }
+  .confirm { display: flex; gap: 8px; align-items: center; font-size: 13px; flex-wrap: wrap; }
+
+  /* Report view */
+  .back { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); font-size: 13px; background: none; border: 0; cursor: pointer; padding: 0; }
+  .back:hover { color: var(--text); }
+  .rh h1 { margin-top: 14px; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 14px; }
+  .query { margin-top: 12px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--purple); border-radius: 8px; font-style: italic; font-size: 14px; overflow-wrap: anywhere; }
+  .rh .chips { margin-top: 12px; }
+  .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; min-width: 0; }
+  .stat .k { color: var(--muted); font-size: 12px; }
+  .stat .v { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .stat .v small { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin: 6px 0 12px; }
+  .seg { display: inline-flex; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 3px; flex-wrap: wrap; }
+  .seg button { background: none; border: 0; color: var(--muted); font-size: 13px; padding: 6px 11px; border-radius: 7px; cursor: pointer; }
+  .seg button.on { background: var(--blue-soft); color: var(--blue-text); }
+  .toggle { display: inline-flex; gap: 8px; align-items: center; color: var(--muted); font-size: 13px; cursor: pointer; }
+  .toggle input { accent-color: var(--blue); width: 16px; height: 16px; }
+  .cards { display: grid; gap: 12px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; display: grid; gap: 11px; min-width: 0; }
+  .card.top { border-color: var(--red); }
+  .card .head { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; }
+  .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+  .badge { font-size: 10.5px; font-weight: 650; letter-spacing: .05em; text-transform: uppercase; padding: 3px 7px; border-radius: 6px; background: var(--surface-2); color: var(--muted); }
+  .badge.red { background: var(--red); color: var(--on-accent); }
+  .badge.purple { background: var(--purple-soft); color: var(--purple-text); }
+  .score { font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; padding: 4px 8px; border-radius: 8px; background: var(--surface-2); white-space: nowrap; }
+  .score span { color: var(--muted); font-weight: 400; }
+  .area { color: var(--muted); font-size: 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .area b { color: var(--purple-text); font-weight: 500; }
+  .title { font-size: 16px; font-weight: 600; line-height: 1.35; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .price { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .price .total { font-size: 21px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .price .total small, .price .pn { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .bar { height: 6px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--blue), var(--purple)); }
+  .bar.over i { background: var(--red); }
+  .barlbl { font-size: 12px; color: var(--muted); margin-top: -6px; }
+  .barlbl.over { color: var(--red-text); }
+  .facts { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; }
+  .facts .norev { color: var(--red-text); }
+  .facts b { font-weight: 600; }
+  .station { display: flex; align-items: center; gap: 10px; background: var(--surface-2); border-radius: 10px; padding: 9px 12px; font-size: 13px; }
+  .station svg { width: 17px; height: 17px; color: var(--blue); flex-shrink: 0; }
+  .station .walk { margin-left: auto; font-weight: 600; white-space: nowrap; }
+  .station .walk.far { color: var(--red-text); }
+  .station small { color: var(--muted); }
+  .safety { font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .safety .lvl { font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--text); }
+  .safety.calmer .lvl { background: var(--blue-soft); color: var(--blue-text); }
+  .safety.busier .lvl { background: var(--red-soft); color: var(--red-text); }
+  .route { border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; font-size: 13px; display: grid; gap: 5px; }
+  .route-top { display: flex; align-items: center; gap: 10px; }
+  .route-top .time { margin-left: auto; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .route-top .time.slow { color: var(--red-text); }
+  .route .legs, .route .alt { color: var(--muted); font-size: 12px; }
+  .route .alt { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .checks { display: flex; flex-wrap: wrap; gap: 6px; }
+  .check { font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
+  .check.pass::before { content: "✓ "; color: var(--green); font-weight: 700; }
+  .check.fail { background: var(--red-soft); color: var(--red-text); }
+  .check.fail::before { content: "✕ "; font-weight: 700; }
+  .why { font-size: 13px; border-left: 2px solid var(--purple); padding-left: 10px; }
+  .said { font-size: 13px; background: var(--surface-2); border-radius: 8px; padding: 8px 10px; }
+  .said .lbl { display: block; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 2px; }
+  .flags { display: grid; gap: 4px; }
+  .flag { font-size: 12px; color: var(--red-text); display: flex; gap: 6px; }
+  .flag::before { content: "!"; display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: var(--red); color: var(--on-accent); font-size: 10px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .meta2 { font-size: 12px; color: var(--muted); }
+  .nm { font-size: 13px; color: var(--red-text); font-weight: 500; }
+  .getting { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin: 0 0 18px; display: grid; gap: 8px; }
+  .getting h3 { margin: 0; font-size: 15px; }
+  .opt { display: grid; grid-template-columns: 52px 1fr; gap: 10px; font-size: 13px; padding: 7px 10px; background: var(--surface-2); border-radius: 8px; }
+  .opt b { font-variant-numeric: tabular-nums; }
+  .warn { font-size: 13px; color: var(--red-text); }
+  .gnotes { font-size: 12px; color: var(--muted); }
+  section.misses { margin-top: 26px; }
+  .usage { font-size: 12px; color: var(--muted); margin-top: 26px; }
+  details { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; margin-top: 18px; font-size: 13px; }
+  summary { cursor: pointer; font-weight: 600; }
+  .slice { padding: 8px 0; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+  .slice:first-of-type { border-top: 0; }
+  @media (max-width: 480px) {
+    h1 { font-size: 23px; }
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stats .stat:last-child { grid-column: 1 / -1; }
+  }
+</style>
+
+<div class="wrap" id="app">
+  <div class="brand">
+    <svg viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="pin" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b8def"/><stop offset="1" stop-color="#9b7bf0"/></linearGradient></defs><rect x="1" y="1" width="62" height="62" rx="16" fill="#171a21" stroke="#2a2f3a" stroke-width="2"/><path d="M32 9c-9.4 0-17 7.3-17 16.4C15 37.3 32 54 32 54s17-16.7 17-28.6C49 16.3 41.4 9 32 9z" fill="url(#pin)"/><path d="M23.5 27.5 32 20.5l8.5 7V36a1.5 1.5 0 0 1-1.5 1.5H25a1.5 1.5 0 0 1-1.5-1.5z" fill="#0f1115"/><circle cx="47" cy="15" r="6" fill="#ef4444" stroke="#171a21" stroke-width="3"/></svg>
+    <div><b>Scout</b> <span>for Airbnb</span></div>
+  </div>
+  <p class="note">Loading your searches…</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  const app = document.getElementById("app");
+  const S = { db: null, dbState: "loading", searches: [], pc: null, view: "home", draft: "", msg: null, sort: "score", showMisses: true, confirmDel: null, stale: false };
+  try { const u = JSON.parse(localStorage.getItem("scout.app") || "{}"); if (u.sort) S.sort = u.sort; if (u.showMisses === false) S.showMisses = false; S.draft = u.draft || ""; } catch (e) {}
+  const persist = () => { try { localStorage.setItem("scout.app", JSON.stringify({ sort: S.sort, showMisses: S.showMisses, draft: S.draft })); } catch (e) {} };
+
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const safeUrl = u => /^https:\/\/(www\.)?airbnb\.[a-z.]+\//i.test(u || "") || /^https:\/\//i.test(u || "") ? u : "";
+  const money = (n, c) => { if (n == null) return "—"; try { return new Intl.NumberFormat(undefined, { style: "currency", currency: c || "USD", maximumFractionDigits: 0 }).format(n); } catch (e) { return Math.round(n) + " " + (c || ""); } };
+  const dshort = d => { if (!d) return "?"; const x = new Date(String(d).slice(0, 10) + "T00:00:00"); return isNaN(x) ? d : x.toLocaleDateString(undefined, { day: "numeric", month: "short" }); };
+  const ago = iso => { const t = Date.parse(iso || ""); if (isNaN(t)) return ""; const m = Math.round((Date.now() - t) / 60000); if (m < 1) return "just now"; if (m < 60) return m + " min ago"; const h = Math.round(m / 60); if (h < 36) return h + " h ago"; return new Date(t).toLocaleDateString(undefined, { day: "numeric", month: "short" }); };
+  const hm = m => m == null ? "?" : (m >= 60 ? Math.floor(m / 60) + "h " + String(m % 60).padStart(2, "0") : m + " min");
+  const newId = () => "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const train = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="13" rx="3"/><path d="M5 10h14M8 20l-2 2M16 20l2 2M9 16v4h6v-4"/></svg>';
+  const ext = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>';
+  const brand = app.querySelector(".brand").outerHTML;
+  const EXAMPLES = [
+    "London, 28/11 – 3/12/2026, 2 guests, 2 beds, entire place, tube ≤ 10 min, zone 3 max, ₪3,000 total, self check-in, landing LGW 1am on the 29th",
+    "4 nights in Lisbon Mar 3–7 2027, under €900 total, 2 beds, near a metro",
+    "Munich Dec 10–15 2026, $1000 total, 2+ beds, close to a train station"
+  ];
+
+  // ---------------------------------------------------------------- data
+  function cityOf(s) {
+    const r = s.report || {}; const f = r.filters || {}; const sm = s.summary || {};
+    return (f.location || sm.city || "").split(",")[0] || "";
+  }
+  function pcStatus() {
+    const pc = S.pc;
+    if (!pc || !pc.lastSeen) return { cls: "", text: "Your PC hasn't checked in yet. Searches wait until Scout is running there." };
+    const mins = (Date.now() - Date.parse(pc.lastSeen)) / 60000;
+    const every = Math.round((pc.intervalSec || 120) / 60);
+    if (mins < 30) return { cls: "on", text: `Your PC is on · checked in ${ago(pc.lastSeen)} · picks up new searches within ~${every} min` };
+    return { cls: "off", text: `Your PC last checked in ${ago(pc.lastSeen)}. Start Scout on your PC (start-scout.cmd) to run searches.` };
+  }
+
+  // ---------------------------------------------------------------- home
+  function itemHtml(s) {
+    const city = cityOf(s);
+    const when = ago(s.updatedAt || s.createdAt);
+    const sm = s.summary || {};
+    const st = s.status || "queued";
+    const label = { queued: "Waiting for PC", running: "Searching", done: "Done", needs_info: "Needs info", error: "Failed", cancelled: "Stopped" }[st] || st;
+    let body = "";
+    if (st === "queued") body = `<div class="progress">Your PC will pick this up next time it checks.</div>`;
+    if (st === "running") body = `<div class="progress"><span class="spin"></span>${esc(s.progress || "Working")}${s.elapsed ? ` <span class="when">· ${Math.round(s.elapsed / 60)} min</span>` : ""}</div>
+      ${s.filters ? `<div class="q">${esc(s.filters)}</div>` : ""}
+      ${(s.scouts || []).length ? `<div class="scouts">${s.scouts.map(x => `<span class="scout ${x.state === "done" ? "done" : ""}">${esc(x.name)}${x.state === "done" ? " ✓" : ""}</span>`).join("")}</div>` : ""}`;
+    if (st === "done") body = `<div class="meta"><span><b>${sm.matches ?? "?"}</b> match${sm.matches === 1 ? "" : "es"}</span>${sm.nearMisses ? `<span>${sm.nearMisses} near miss${sm.nearMisses === 1 ? "" : "es"}</span>` : ""}${sm.cheapest ? `<span>from <b>${esc(money(sm.cheapest, sm.currency))}</b></span>` : ""}${sm.checkin ? `<span>${dshort(sm.checkin)} – ${dshort(sm.checkout)}</span>` : ""}</div>`;
+    if (st === "needs_info") body = `<div class="ask">${esc(s.question || "Scout needs more detail.")}</div><div><button class="linkbtn" data-answer="${esc(s.id)}">Answer and search again</button></div>`;
+    if (st === "error") body = `<div class="ask">${esc(s.error || "The search didn't finish.")}</div><div><button class="linkbtn" data-retry="${esc(s.id)}">Try again</button></div>`;
+    const del = S.confirmDel === s.id
+      ? `<div class="confirm">Delete this search? <button class="linkbtn" data-delyes="${esc(s.id)}">Delete</button> <button class="linkbtn del" data-delno="1">Keep</button></div>`
+      : (st !== "running" ? `<button class="linkbtn del" data-del="${esc(s.id)}">Delete</button>` : "");
+    return `<div class="item${st === "done" && s.report ? " click" : ""}" ${st === "done" && s.report ? `data-open="${esc(s.id)}" role="button" tabindex="0"` : ""}>
+      <div class="top"><span class="city">${esc(city || "New search")}</span><span class="pill ${esc(st)}">${esc(label)}</span></div>
+      <div class="q">${esc(s.query || "")}</div>
+      ${body}
+      <div class="row"><span class="when">${esc(when)}${s.source === "pc" ? " · run on your PC" : ""}</span>${del}</div>
+    </div>`;
+  }
+
+  function renderHome() {
+    const live = S.searches.filter(s => ["queued", "running", "needs_info", "error"].includes(s.status));
+    const done = S.searches.filter(s => !live.includes(s));
+    const pc = pcStatus();
+    const canWrite = !!S.db;
+    const dbNote = S.dbState === "loading" ? "Connecting…" : S.dbState === "none" ? "Sign in to claude.ai to search and see your history." : S.dbState === "error" ? "Couldn't reach your saved searches. Pull to refresh or try again shortly." : "";
+    app.innerHTML = `${brand}
+      <h1>Where to next?</h1>
+      <form class="search" id="f" autocomplete="off">
+        <label for="q" class="hint" style="flex:none">Describe the stay like you'd tell a friend. Scout runs it on your PC and the results appear here.</label>
+        <textarea id="q" placeholder="${esc(EXAMPLES[0])}">${esc(S.draft)}</textarea>
+        <div class="row">
+          <span class="hint ${S.msg ? S.msg.cls : ""}" id="hint">${S.msg ? esc(S.msg.text) : (dbNote || "Dates, budget, beds, how close to transit, when you land.")}</span>
+          <button class="btn" type="submit" ${canWrite ? "" : "disabled"}>Search</button>
+        </div>
+        <div class="chips">${EXAMPLES.slice(1).map((e, i) => `<button type="button" class="chip" data-ex="${i + 1}">${esc(e.split(",")[0].split(" under")[0])}</button>`).join("")}</div>
+      </form>
+      <div class="pc ${pc.cls}"><i></i><span>${esc(pc.text)}</span></div>
+      ${S.stale ? `<p class="note">Showing saved data; it may be out of date.</p>` : ""}
+      ${live.length ? `<h2>In progress</h2><div class="list">${live.map(itemHtml).join("")}</div>` : ""}
+      <h2>Past searches</h2>
+      ${done.length ? `<div class="list">${done.map(itemHtml).join("")}</div>` : `<div class="empty">${S.dbState === "ready" ? "No searches yet. Describe a trip above and it'll show up here with its report." : esc(dbNote || "Loading…")}</div>`}
+      <p class="note">Listing photos aren't shown here; open a listing on Airbnb to see them. Prices are at the time of each search.</p>`;
+    bindHome();
+  }
+
+  function bindHome() {
+    const f = document.getElementById("f"), q = document.getElementById("q");
+    q.addEventListener("input", () => { S.draft = q.value; persist(); });
+    f.addEventListener("submit", async e => {
+      e.preventDefault();
+      const text = q.value.trim().replace(/\s+/g, " ").slice(0, 600);
+      if (!text) { S.msg = { cls: "err", text: "Type what you're looking for first." }; renderHome(); document.getElementById("q").focus(); return; }
+      if (!S.db) return;
+      const btn = f.querySelector("button[type=submit]"); btn.disabled = true;
+      try {
+        await S.db.collection("searches").doc(newId()).set({ query: text, status: "queued", createdAt: new Date().toISOString(), source: "phone" });
+        S.draft = ""; persist();
+        S.msg = { cls: "ok", text: "Sent. Your PC will start it shortly; progress shows below." };
+      } catch (err) {
+        S.msg = { cls: "err", text: err && err.code === "permission_denied" ? "Only the owner can start searches." : "Couldn't send the search. Check your connection and try again." };
+      }
+      renderHome();
+      clearTimeout(bindHome.t); bindHome.t = setTimeout(() => { S.msg = null; if (S.view === "home") renderHome(); }, 6000);
+    });
+    app.querySelectorAll("[data-ex]").forEach(b => b.addEventListener("click", () => { q.value = EXAMPLES[+b.dataset.ex]; S.draft = q.value; persist(); q.focus(); }));
+    app.querySelectorAll("[data-open]").forEach(el => {
+      const go = () => openReport(el.dataset.open);
+      el.addEventListener("click", e => { if (!e.target.closest("button")) go(); });
+      el.addEventListener("keydown", e => { if (e.key === "Enter") go(); });
+    });
+    const byId = id => S.searches.find(s => s.id === id) || {};
+    app.querySelectorAll("[data-answer]").forEach(b => b.addEventListener("click", () => { const s = byId(b.dataset.answer); S.draft = (s.query || "") + " — "; persist(); renderHome(); const t = document.getElementById("q"); t.focus(); t.setSelectionRange(t.value.length, t.value.length); }));
+    app.querySelectorAll("[data-retry]").forEach(b => b.addEventListener("click", () => { const s = byId(b.dataset.retry); S.draft = s.query || ""; persist(); renderHome(); document.getElementById("q").focus(); }));
+    app.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", e => { e.stopPropagation(); S.confirmDel = b.dataset.del; renderHome(); }));
+    app.querySelectorAll("[data-delno]").forEach(b => b.addEventListener("click", e => { e.stopPropagation(); S.confirmDel = null; renderHome(); }));
+    app.querySelectorAll("[data-delyes]").forEach(b => b.addEventListener("click", async e => {
+      e.stopPropagation(); const id = b.dataset.delyes; S.confirmDel = null;
+      try { await S.db.collection("searches").doc(id).delete(); } catch (err) { S.msg = { cls: "err", text: "Couldn't delete that search." }; }
+      renderHome();
+    }));
+  }
+
+  // ---------------------------------------------------------------- report
+  function routeBlock(l, short) {
+    const r = l.arrivalRoute; if (!r) return "";
+    const t = r.transit;
+    const top = t ? `<div class="route-top"><span>From ${esc(short)}: leave ${esc(t.leaveAt || "?")} → arrive <b>${esc(t.arriveAt || "?")}</b></span><span class="time${t.totalMin > 120 ? " slow" : ""}">${hm(t.totalMin)}</span></div>`
+                  : `<div class="route-top"><span>No public transport from ${esc(short)} until morning</span><span class="time slow">—</span></div>`;
+    const legs = t && t.summary ? `<div class="legs">${esc(t.summary)}${t.changes != null ? " · " + t.changes + (t.changes === 1 ? " change" : " changes") : ""}</div>` : "";
+    const taxi = r.taxi && (r.taxi.minutes || r.taxi.fare) ? `<div class="alt"><span>Taxi: ${r.taxi.minutes ? hm(r.taxi.minutes) : "?"}${r.taxi.fare ? " · " + esc(r.taxi.fare) : ""}</span>${r.verdict ? `<span>${esc(r.verdict)}</span>` : ""}</div>` : "";
+    return `<div class="route">${top}${legs}${taxi}</div>`;
+  }
+
+  function cardHtml(l, F, top, short) {
+    const budget = F.budgetTotal;
+    const pct = budget && l.totalPrice != null ? Math.min(100, l.totalPrice / budget * 100) : null;
+    const over = budget && l.totalPrice != null && l.totalPrice > budget;
+    const st = l.station || {};
+    const far = st.walkMin != null && F.maxWalkMin && st.walkMin > F.maxWalkMin;
+    const link = safeUrl(l.url);
+    const b = [];
+    if (top) b.push('<span class="badge red">Top pick</span>');
+    if (l.nearMiss) b.push('<span class="badge red">Near miss</span>');
+    if (l.wishlisted || l.onWishlist) b.push('<span class="badge purple">♥ Wishlist</span>');
+    if (l.superhost) b.push('<span class="badge purple">Superhost</span>');
+    const roomLabel = /room/i.test(l.listedAs || "") && !/entire/i.test(l.listedAs || "");
+    if (roomLabel && l.effectivelyEntire === true) b.push('<span class="badge purple">Whole flat · listed as room</span>');
+    return `<article class="card${top ? " top" : ""}">
+      <div class="head"><div style="min-width:0">${b.length ? `<div class="badges">${b.join("")}</div>` : ""}
+        <div class="area">${l.area ? `<b>${esc(l.area)}</b>` : ""}${l.propertyType ? `<span>${esc(l.propertyType)}</span>` : ""}</div>
+        <h3 class="title">${esc(l.title || "Untitled listing")}</h3></div>
+        ${!l.nearMiss && l.score != null ? `<div class="score">${Math.round(l.score)}<span>/100</span></div>` : ""}</div>
+      ${l.nearMiss && l.nearMissReason ? `<div class="nm">${esc(l.nearMissReason)}</div>` : ""}
+      <div class="price"><div class="total">${money(l.totalPrice, l.currency || F.currency)} <small>total</small></div><div class="pn">${money(l.perNight, l.currency || F.currency)} / night</div></div>
+      ${pct != null ? `<div class="bar${over ? " over" : ""}"><i style="width:${pct}%"></i></div><div class="barlbl${over ? " over" : ""}">${over ? money(l.totalPrice - budget, F.currency) + " over budget" : money(budget - l.totalPrice, F.currency) + " left of " + money(budget, F.currency)}</div>` : ""}
+      <div class="facts">${l.beds != null ? `<span>${l.beds} bed${l.beds === 1 ? "" : "s"}</span>` : ""}${l.bedrooms != null ? `<span>${l.bedrooms} bedroom${l.bedrooms === 1 ? "" : "s"}</span>` : ""}${l.maxGuests != null ? `<span>${l.maxGuests} guests</span>` : ""}${l.reviews ? `<span>★ ${l.rating != null ? Number(l.rating).toFixed(2) + " · " : ""}<b>${l.reviews} review${l.reviews === 1 ? "" : "s"}</b></span>` : `<span class="norev">No reviews yet</span>`}</div>
+      ${st.name ? `<div class="station">${train}<div>${esc(st.name)}${st.type ? ` <small>· ${esc(st.type)}</small>` : st.zone ? ` <small>· Zone ${esc(st.zone)}</small>` : ""}</div><div class="walk${far ? " far" : ""}">${st.walkMin != null ? (st.approx ? "~" : "") + st.walkMin + " min walk" : "?"}</div></div>` : ""}
+      ${l.safety && l.safety.level ? `<div class="safety ${esc(l.safety.level)}"><span class="lvl">${esc({ calmer: "Calmer area", average: "Average area", busier: "Busier area" }[l.safety.level] || l.safety.level)}</span>${l.safety.note ? esc(l.safety.note) : ""}${l.safety.streetCrime != null ? ` <span>· ${l.safety.streetCrime} street crimes/month within 1 mi</span>` : ""}</div>` : ""}
+      ${routeBlock(l, short)}
+      ${(l.checks || []).length ? `<div class="checks">${l.checks.map(c => `<span class="check ${c.pass ? "pass" : "fail"}">${esc(c.label)}</span>`).join("")}</div>` : ""}
+      ${roomLabel && l.entireEvidence ? `<div class="meta2">Airbnb label: ${esc(l.listedAs)}. ${esc(l.entireEvidence)}</div>` : ""}
+      ${l.why ? `<div class="why">${esc(l.why)}</div>` : ""}
+      ${l.reviewSummary ? `<div class="said"><span class="lbl">Guests say${l.lastReviewDate ? " · latest " + esc(l.lastReviewDate) : ""}</span>${esc(l.reviewSummary)}</div>` : ""}
+      ${l.hostNotes ? `<div class="said"><span class="lbl">From the host's description</span>${esc(l.hostNotes)}</div>` : ""}
+      ${(l.reviewIssues || []).length || (l.redFlags || []).length ? `<div class="flags">${(l.reviewIssues || []).map(f => `<div class="flag">Reviews: ${esc(f)}</div>`).join("")}${(l.redFlags || []).map(f => `<div class="flag">${esc(f)}</div>`).join("")}</div>` : ""}
+      ${l.checkIn && l.checkIn.method ? `<div class="meta2">Check-in: ${esc(l.checkIn.method)}${l.checkIn.from ? " · from " + esc(l.checkIn.from) : ""}</div>` : ""}
+      ${l.cancellation ? `<div class="meta2">${esc(l.cancellation)}</div>` : ""}
+      ${link ? `<div><a class="btn" href="${esc(link)}" target="_blank" rel="noopener">Open on Airbnb ${ext}</a></div>` : ""}
+    </article>`;
+  }
+
+  const sorters = {
+    score: (a, b) => (b.score || 0) - (a.score || 0),
+    price: (a, b) => (a.totalPrice ?? 1e12) - (b.totalPrice ?? 1e12),
+    station: (a, b) => ((a.station || {}).walkMin ?? 1e6) - ((b.station || {}).walkMin ?? 1e6),
+    reviews: (a, b) => (b.reviews || 0) - (a.reviews || 0) || (b.rating || 0) - (a.rating || 0),
+    arrival: (a, b) => (((a.arrivalRoute || {}).transit || {}).totalMin ?? 1e6) - (((b.arrivalRoute || {}).transit || {}).totalMin ?? 1e6)
+  };
+
+  function renderReport(id) {
+    const s = S.searches.find(x => x.id === id);
+    if (!s || !s.report) {
+      app.innerHTML = `${brand}<p style="margin-top:20px"><button class="back" id="bk">← All searches</button></p><div class="empty">${S.dbState === "loading" ? "Loading…" : "This report isn't available. It may have been deleted."}</div>`;
+      document.getElementById("bk").onclick = () => openReport(null);
+      return;
+    }
+    const R = s.report, F = R.filters || {}, A = R.arrival || null;
+    const all = Array.isArray(R.listings) ? R.listings : [];
+    const picks = all.filter(l => !l.nearMiss), misses = all.filter(l => l.nearMiss);
+    const topPick = picks.find(l => l.topPick) || [...picks].sort(sorters.score)[0];
+    const rest = picks.filter(l => l !== topPick).sort(sorters[S.sort] || sorters.score);
+    const cheapest = picks.reduce((m, l) => l.totalPrice != null && (!m || l.totalPrice < m.totalPrice) ? l : m, null);
+    const closest = picks.reduce((m, l) => (l.station || {}).walkMin != null && (!m || l.station.walkMin < m.station.walkMin) ? l : m, null);
+    const city = (F.location || "Your trip").split(",")[0];
+    const short = A ? ((String(A.place || "").match(/\(([A-Z]{3})\)/) || [])[1] || String(A.place || "").replace(/^London\s+/, "")) : "";
+    const chips = [];
+    if (F.guests) chips.push(`${F.guests} guest${F.guests === 1 ? "" : "s"}`);
+    if (F.budgetTotal) chips.push(`≤ ${money(F.budgetTotal, F.currency)} total`);
+    if (F.minBeds) chips.push(`${F.minBeds}+ beds`);
+    if (F.propertyType) chips.push(F.propertyType);
+    const chipHtml = chips.map(c => `<span class="chip static">${esc(c)}</span>`).join("")
+      + (A ? `<span class="chip static arrive">Arriving ${esc(short)} ${esc(String(A.landing || "").slice(11, 16))}</span>` : "")
+      + (F.mustHaves || []).map(m => `<span class="chip static must">Must: ${esc(m)}</span>`).join("")
+      + (F.niceToHaves || []).map(m => `<span class="chip static">Nice: ${esc(m)}</span>`).join("")
+      + (F.assumptions || []).map(m => `<span class="chip static assume">${esc(m)}</span>`).join("");
+    const opts = (R.airportOptions || []).map(o => `<div class="opt"><b>${esc(o.departs || "")}</b><span>${esc([o.mode, o.operator].filter(Boolean).join(" · "))}${o.to ? " → " + esc(o.to) : ""}${o.arrives ? " (" + esc(o.arrives) + ")" : ""}${o.frequency ? " · " + esc(o.frequency) : ""}</span></div>`).join("");
+    const earlyCI = A && F.checkin && String(A.landing || "").slice(0, 10) === F.checkin && Number(String(A.landing).slice(11, 13)) < 12;
+    const hasRoutes = all.some(l => l.arrivalRoute);
+    const sb = (k, label) => `<button data-sort="${k}" class="${S.sort === k ? "on" : ""}">${label}</button>`;
+    const u = R.usage;
+    app.innerHTML = `${brand}
+      <p style="margin:18px 0 0"><button class="back" id="bk">← All searches</button></p>
+      <header class="rh">
+        <h1>${esc(city)} · ${dshort(F.checkin)} – ${dshort(F.checkout)}</h1>
+        <div class="sub">${F.nights ? F.nights + " nights" : ""}${F.location && F.location !== city ? " · " + esc(F.location) : ""}</div>
+        ${R.query ? `<div class="query">“${esc(R.query)}”</div>` : ""}
+        <div class="chips">${chipHtml}</div>
+      </header>
+      <div class="stats">
+        <div class="stat"><div class="k">Matches</div><div class="v">${picks.length} <small>+ ${misses.length} near</small></div></div>
+        <div class="stat"><div class="k">Cheapest</div><div class="v">${cheapest ? money(cheapest.totalPrice, cheapest.currency || F.currency) : "—"}</div></div>
+        <div class="stat"><div class="k">Closest to station</div><div class="v">${closest ? "~" + closest.station.walkMin + " min <small>" + esc(closest.station.name) + "</small>" : "—"}</div></div>
+      </div>
+      ${A ? `<div class="getting"><h3>Getting there from ${esc(String(A.place || "").replace(/^London\s+/, ""))}</h3>
+        <div class="gnotes">Landing ${esc(String(A.landing || "").replace("T", " "))}${A.readyAt ? ` · out of the airport ~${esc(A.readyAt)}` : ""}</div>
+        ${opts}${earlyCI ? `<div class="warn">You land in the early hours of your check-in day. Book from the night before or ask about early check-in.</div>` : ""}
+        ${R.arrivalNotes ? `<div class="gnotes">${esc(R.arrivalNotes)}</div>` : ""}</div>` : ""}
+      ${picks.length ? `<div class="cards">${topPick ? cardHtml(topPick, F, true, short) : ""}</div>
+        ${rest.length ? `<div class="controls" style="margin-top:16px"><div class="seg" role="group" aria-label="Sort">${sb("score", "Best fit")}${sb("price", "Price")}${sb("station", "Station")}${sb("reviews", "Reviews")}${hasRoutes ? sb("arrival", "Arrival") : ""}</div>
+          ${misses.length ? `<label class="toggle"><input type="checkbox" id="nmx" ${S.showMisses ? "checked" : ""}> Near misses</label>` : ""}</div>
+          <div class="cards">${rest.map(l => cardHtml(l, F, false, short)).join("")}</div>` : ""}`
+        : `<div class="empty">No listing met every requirement.${misses.length ? " The near misses below are close." : " Try other dates or a higher budget."}</div>`}
+      ${misses.length && (S.showMisses || !rest.length) ? `<section class="misses"><h2>Near misses · ${misses.length}</h2><div class="cards">${misses.map(l => cardHtml(l, F, false, short)).join("")}</div></section>` : ""}
+      <details><summary>Search details</summary>${(R.slices || []).map(x => `<div class="slice"><span class="pill ${x.status === "blocked" ? "error" : "done"}">${esc(x.status || "ok")}</span> ${esc(x.label || "")} · ${x.found ?? 0} found${x.note ? " — " + esc(x.note) : ""}</div>`).join("")}</details>
+      <p class="usage">Prices at time of search${R.generatedAt ? " · " + esc(new Date(R.generatedAt).toLocaleString()) : ""}${u && u.minutes ? ` · took ${u.minutes} min` : ""}${u && u.costUSD ? ` · plan usage ≈ $${Number(u.costUSD).toFixed(2)} of API-equivalent` : ""}. Station walks are approximate.</p>`;
+    document.getElementById("bk").onclick = () => openReport(null);
+    app.querySelectorAll("[data-sort]").forEach(b => b.addEventListener("click", () => { S.sort = b.dataset.sort; persist(); renderReport(id); }));
+    const nm = document.getElementById("nmx"); if (nm) nm.addEventListener("change", () => { S.showMisses = nm.checked; persist(); renderReport(id); });
+  }
+
+  // ---------------------------------------------------------------- routing + boot
+  function openReport(id) {
+    S.openId = id;
+    try { const want = id ? "#r-" + id : ""; if (location.hash !== want) { if (want) location.hash = want; else history.replaceState(null, "", location.pathname + location.search); } } catch (e) {}
+    route(true);
+  }
+  function route(fromState) {
+    if (!fromState) { const h = location.hash.replace(/^#/, ""); S.openId = h.startsWith("r-") ? h.slice(2) : null; }
+    if (S.openId) { S.view = "report"; renderReport(S.openId); window.scrollTo(0, 0); }
+    else { S.view = "home"; renderHome(); }
+  }
+  function rerender() { if (S.view === "report") renderReport(S.openId); else renderHome(); }
+  window.addEventListener("hashchange", () => route(false));
+  route(false);
+
+  const use = window.claude && window.claude.use ? window.claude.use.bind(window.claude) : null;
+  if (!use) { S.dbState = "none"; rerender(); return; }
+  use("db").then(db => {
+    if (!db) { S.dbState = "none"; rerender(); return; }
+    S.db = db;
+    let timer = setTimeout(() => { if (S.dbState === "loading") { S.dbState = "error"; rerender(); } else { S.stale = true; rerender(); } }, 10000);
+    db.collection("searches").orderBy("createdAt", "desc").limit(40).onSnapshot(snap => {
+      S.searches = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+      if (!snap.metadata.fromCache) { clearTimeout(timer); S.stale = false; }
+      S.dbState = "ready";
+      if (S.view === "home" && document.activeElement && document.activeElement.id === "q") {
+        // don't wipe the textarea while typing: only refresh the lists
+        const keep = document.activeElement.selectionStart; renderHome(); const t = document.getElementById("q"); t.focus(); try { t.setSelectionRange(keep, keep); } catch (e) {}
+      } else rerender();
+    }, () => { clearTimeout(timer); S.dbState = "error"; rerender(); });
+    db.doc("pc/status").onSnapshot(d => { S.pc = d.exists ? d.data() : null; if (S.view === "home") rerender(); }, () => {});
+  }).catch(() => { S.dbState = "error"; rerender(); });
+})();
+</script>
