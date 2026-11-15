@@ -28,6 +28,8 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT / "scripts"))
+import ext_backend  # noqa: E402
 RESULTS = ROOT / "results"
 LOGS = RESULTS / "logs"
 HOST, PORT = "127.0.0.1", int(os.environ.get("SCOUT_PORT", "8787"))
@@ -70,6 +72,11 @@ def claude_supports_chrome(exe: str) -> bool:
         return "--chrome" in out
     except Exception:
         return False
+
+
+def is_extension(origin: str | None) -> bool:
+    # Prototype: any Chrome extension on this PC may call the /api/ext endpoints (the server only listens on 127.0.0.1).
+    return bool(origin) and origin.startswith("chrome-extension://")
 
 
 CLAUDE = find_claude()
@@ -543,12 +550,32 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(body)))
+        self._cors()
         self.end_headers()
         self.wfile.write(body)
 
     def _same_origin(self) -> bool:
         origin = self.headers.get("Origin")
-        return origin in (None, f"http://{HOST}:{PORT}", f"http://localhost:{PORT}")
+        return origin in (None, f"http://{HOST}:{PORT}", f"http://localhost:{PORT}") or is_extension(origin)
+
+    def _cors(self):
+        origin = self.headers.get("Origin")
+        if is_extension(origin):
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+
+    def do_OPTIONS(self):
+        self.send_response(204 if is_extension(self.headers.get("Origin")) else 403)
+        self._cors()
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def _body(self, limit: int = 10_000) -> dict:
+        length = int(self.headers.get("Content-Length", "0"))
+        if length > limit:
+            raise ValueError("request too large")
+        return json.loads(self.rfile.read(length) or b"{}")
 
     def do_GET(self):
         path = urlparse(self.path).path
@@ -566,6 +593,8 @@ class Handler(BaseHTTPRequestHandler):
         if not self._same_origin():
             return self._json(403, {"error": "Forbidden"})
         path = urlparse(self.path).path
+        if path.startswith("/api/ext/"):
+            return self._ext(path)
         if path == "/api/search":
             try:
                 length = min(int(self.headers.get("Content-Length", "0")), 10_000)
@@ -588,6 +617,50 @@ class Handler(BaseHTTPRequestHandler):
                 kill(CURRENT, "cancel")
             return self._json(200, {"job": CURRENT.snapshot() if CURRENT else None})
         self._json(404, {"error": "Not found"})
+
+    def _ext(self, path: str):
+        """Endpoints for the Chrome extension: it browses Airbnb in the user's browser, the server thinks."""
+        try:
+            data = self._body(limit=3_000_000)
+        except (ValueError, json.JSONDecodeError):
+            return self._json(400, {"error": "Bad request"})
+        try:
+            if path == "/api/ext/parse":
+                query = re.sub(r"\s+", " ", str(data.get("query", ""))).strip()[:MAX_QUERY]
+                if not query:
+                    return self._json(400, {"error": "Type what you're looking for first."})
+                return self._json(200, ext_backend.parse_request(query))
+            if path == "/api/ext/prefilter":
+                return self._json(200, ext_backend.prefilter(data.get("filters") or {}, data.get("cards") or [],
+                                                             top=min(8, int(data.get("top") or 5))))
+            if path == "/api/ext/finish":
+                f = data.get("filters") or {}
+                f["searchUrl"] = str(data.get("searchUrl", ""))[:3000]
+                listings = [x for x in (data.get("listings") or []) if isinstance(x, dict)][:8]
+                judged, cost = ext_backend.analyze(f, listings)
+                extracted = {str(x.get("id")): x for x in listings}
+                for j in judged:  # keep the page's own numbers over the model's
+                    x = extracted.get(str(j.get("id"))) or {}
+                    for k in ("totalPrice", "rating", "reviews", "image"):
+                        if x.get(k) is not None:
+                            j[k] = x[k]
+                cards = {str(k): v for k, v in (data.get("cards") or {}).items()}
+                rep = ext_backend.rank(str(data.get("run", "")), f, cards, judged, data.get("pages") or [],
+                                       [str(x) for x in (data.get("cachedIds") or [])][:8])
+                rep["usage"] = {"costUSD": round(cost + float(data.get("parseCost") or 0), 4), "source": "extension"}
+                src = RESULTS / f"{data.get('run')}.json"
+                src.write_text(json.dumps(rep, ensure_ascii=False, indent=1), encoding="utf-8")
+                subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+                                str(ROOT / "scripts" / "build-report.ps1"), "-Json", str(src)], cwd=ROOT, capture_output=True,
+                               creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0)
+                html = src.with_suffix(".html")
+                picks = [x for x in rep.get("listings", []) if not x.get("nearMiss")]
+                return self._json(200, {"report": f"http://localhost:{PORT}/results/{html.name}" if html.exists() else "",
+                                        "matches": len(picks), "nearMisses": len(rep.get("listings", [])) - len(picks),
+                                        "costUSD": rep["usage"]["costUSD"]})
+        except Exception as e:  # noqa: BLE001
+            return self._json(500, {"error": str(e)[:300]})
+        return self._json(404, {"error": "Not found"})
 
     def _static(self, path: str):
         if path in ("", "/"):

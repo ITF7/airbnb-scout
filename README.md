@@ -51,6 +51,18 @@ More examples:
 - **Safety:** "safe to walk at night" compares police-recorded street crime around each shortlisted station (data.police.uk, England & Wales) and what guests say about the area at night.
 - **Self check-in, budget, beds** and similar go straight into Airbnb's own filters, so scouts only read listings that already fit.
 
+## Chrome extension (prototype)
+
+`extension/` is the start of a version anyone can use: Scout runs as a Chrome extension and searches Airbnb **in the user's own browser**, only when they ask, at a person's pace (at most 4 result pages and 8 listings per search, in a visible tab). It never books, messages hosts, signs in or gets past bot checks. For now the AI step runs on this PC through the Scout server, on your Claude plan; nothing costs money.
+
+Try it:
+1. Start Scout on this PC (`start-scout.cmd`).
+2. In Chrome open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and pick the `extension` folder.
+3. Click the Scout icon in the toolbar. Type a request and press **Search**: Scout opens the Airbnb search with your filters, reads up to 4 pages and shows a shortlist.
+4. Press **Check the best 5**: Scout opens those listings one by one, then reads the descriptions and reviews, ranks them and opens the report.
+
+How it splits the work: the extension does the browsing (`extension/app.js`, using the same page-reading scripts as the scouts, copied into `extension/extract/`). The server does the thinking (`scripts/ext_backend.py`): it understands the request, builds the Airbnb link with Airbnb's own filters, shortlists, reads descriptions and reviews with a small model, and ranks with `scout_tools.py`.
+
 ## Working on it from another computer
 
 The code lives at https://github.com/ITF7/airbnb-scout. One PC is the **main PC**: it has Chrome with the Claude extension, runs `start-scout.cmd`, and is the only one with `data/relay.json` (the phone-app link), so phone searches never run twice.

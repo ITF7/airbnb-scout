@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scout for Airbnb</title>
+<style>
+  :root {
+    --bg: #0f1115; --surface: #171a21; --surface-2: #1f232c; --border: #2a2f3a;
+    --text: #e6e8ee; --muted: #8b93a7; --blue: #5b8def; --blue-soft: rgba(91,141,239,.14);
+    --purple: #9b7bf0; --purple-soft: rgba(155,123,240,.14); --red: #ef4444; --red-soft: rgba(239,68,68,.14);
+    --green: #34d399;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 Inter, "Segoe UI", system-ui, sans-serif; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 28px 16px 64px; }
+  .brand { display: flex; gap: 10px; align-items: center; }
+  .brand svg { width: 30px; height: 30px; }
+  .brand b { font-size: 16px; } .brand span { color: var(--muted); font-size: 13px; }
+  h1 { font-size: 26px; margin: 22px 0 12px; font-weight: 650; letter-spacing: -.015em; }
+  .box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: grid; gap: 10px; }
+  textarea { width: 100%; min-height: 96px; resize: vertical; background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px; font: inherit; }
+  textarea:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
+  .row { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+  .hint { color: var(--muted); font-size: 12px; flex: 1 1 240px; }
+  button { font: inherit; }
+  .btn { background: var(--blue); color: #fff; border: 0; border-radius: 10px; padding: 10px 16px; font-weight: 600; font-size: 14px; cursor: pointer; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn.ghost { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+  h2 { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin: 26px 0 10px; font-weight: 600; }
+  .steps { display: grid; gap: 6px; font-size: 14px; }
+  .step { display: flex; gap: 10px; align-items: baseline; }
+  .step i { width: 8px; height: 8px; border-radius: 50%; background: var(--border); flex-shrink: 0; transform: translateY(-1px); }
+  .step.run i { background: var(--blue); } .step.ok i { background: var(--green); } .step.err i { background: var(--red); }
+  .step.err { color: #fca5a5; }
+  .step small { color: var(--muted); }
+  .filters { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); }
+  .chip.must { background: var(--purple-soft); border-color: transparent; color: #cdbcff; }
+  .list { display: grid; gap: 8px; }
+  .item { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; display: grid; gap: 4px; }
+  .item .t { font-weight: 600; } .item .m { color: var(--muted); font-size: 13px; display: flex; gap: 6px 14px; flex-wrap: wrap; }
+  .item .m b { color: var(--text); font-weight: 600; }
+  .tag { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; padding: 2px 7px; border-radius: 6px; background: var(--purple-soft); color: #cdbcff; }
+  .ask { color: #fca5a5; }
+  .note { color: var(--muted); font-size: 12px; margin-top: 16px; }
+  .done { background: var(--surface); border: 1px solid var(--red); border-radius: 12px; padding: 14px 16px; display: grid; gap: 8px; }
+  a { color: var(--blue); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <svg viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="pin" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b8def"/><stop offset="1" stop-color="#9b7bf0"/></linearGradient></defs><rect x="1" y="1" width="62" height="62" rx="16" fill="#171a21" stroke="#2a2f3a" stroke-width="2"/><path d="M32 9c-9.4 0-17 7.3-17 16.4C15 37.3 32 54 32 54s17-16.7 17-28.6C49 16.3 41.4 9 32 9z" fill="url(#pin)"/><path d="M23.5 27.5 32 20.5l8.5 7V36a1.5 1.5 0 0 1-1.5 1.5H25a1.5 1.5 0 0 1-1.5-1.5z" fill="#0f1115"/><circle cx="47" cy="15" r="6" fill="#ef4444" stroke="#171a21" stroke-width="3"/></svg>
+    <div><b>Scout</b> <span>for Airbnb</span></div>
+  </div>
+  <h1>Where to next?</h1>
+  <form class="box" id="form" autocomplete="off">
+    <textarea id="q" placeholder="London, 28 Nov – 3 Dec 2026, 2 guests, 2 beds, entire place, tube ≤ 10 min, zone 3 max, ₪3,000 total, self check-in, landing LGW 1am on the 29th"></textarea>
+    <div class="row">
+      <span class="hint" id="hint">Scout opens Airbnb in a tab of this browser and reads it like you would. It never books, messages hosts or signs in.</span>
+      <button class="btn" id="go" type="submit">Search</button>
+    </div>
+  </form>
+
+  <section id="progress" hidden>
+    <h2>Progress</h2>
+    <div class="filters" id="filters"></div>
+    <div class="steps" id="steps" style="margin-top:12px"></div>
+  </section>
+
+  <section id="shortlist" hidden>
+    <h2>Shortlist from the search results</h2>
+    <div class="list" id="list"></div>
+    <div class="row" style="margin-top:12px">
+      <span class="hint" id="checkHint"></span>
+      <button class="btn" id="check" type="button">Check the best 5</button>
+    </div>
+  </section>
+
+  <section id="result" hidden>
+    <h2>Done</h2>
+    <div class="done" id="done"></div>
+  </section>
+
+  <p class="note">Prototype. Needs Scout running on this PC (start-scout.cmd) for the AI step. Searches pace themselves like a person and read at most 4 result pages and 8 listings.</p>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
