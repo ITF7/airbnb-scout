@@ -22,3 +22,6 @@ __pycache__/
 
 # Scoring page backup
 config/scoring.previous.json
+
+# Packaged extension (rebuild with scripts/package_extension.py)
+dist/

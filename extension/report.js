@@ -71,7 +71,7 @@
         <div class="grid">${rest.map(l => card(l)).join("")}</div>` : ""}`
         : `<div class="empty">No listing met every requirement.${misses.length ? " The near misses below are close." : " Try other dates or a higher budget."}</div>`}
       ${misses.length ? `<h2>Near misses</h2><div class="grid">${misses.map(l => card(l)).join("")}</div>` : ""}
-      <footer>Prices at the time of the search · walking times are approximate · bookings happen on Airbnb</footer>`;
+      <footer>Prices at the time of the search · walking times are approximate · bookings happen on Airbnb · Scout is not affiliated with Airbnb</footer>`;
     app.querySelectorAll("[data-sort]").forEach(b => b.onclick = () => { sort = b.dataset.sort; render(); });
   }
   render();
