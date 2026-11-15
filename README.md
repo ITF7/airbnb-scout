@@ -51,6 +51,19 @@ More examples:
 - **Safety:** "safe to walk at night" compares police-recorded street crime around each shortlisted station (data.police.uk, England & Wales) and what guests say about the area at night.
 - **Self check-in, budget, beds** and similar go straight into Airbnb's own filters, so scouts only read listings that already fit.
 
+## Working on it from another computer
+
+The code lives at https://github.com/ITF7/airbnb-scout. One PC is the **main PC**: it has Chrome with the Claude extension, runs `start-scout.cmd`, and is the only one with `data/relay.json` (the phone-app link), so phone searches never run twice.
+
+On any other computer:
+1. Install [Git](https://git-scm.com/download/win), the [Claude desktop app](https://claude.ai/download), and Python 3 if you want to run scripts there.
+2. Download the code: `git clone https://github.com/ITF7/airbnb-scout.git`
+3. Open that folder in the Claude app's Code tab and work as usual. When you're done, ask Claude to commit and push.
+
+Back on the main PC, `start-scout.cmd` pulls the latest version from GitHub each time it starts. In a Claude session there, `git pull` does the same.
+
+Not in GitHub (on purpose): search results, logs, caches and the phone-app link. They stay on the PC that made them.
+
 ## What happens
 
 1. **Parse:** your sentence becomes filters (location, dates, guests, total budget, beds, must-haves). Missing location or dates means one quick question. Anything else gets a sensible default, shown as an "assumed" chip in the report.
