@@ -36,6 +36,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import geo  # noqa: E402
+import scoring  # noqa: E402
 
 ROOT = geo.ROOT
 DATA = ROOT / "data"
@@ -141,8 +142,7 @@ def cards_from(path):
 
 
 def review_pts(n):
-    n = n or 0
-    return 0 if n == 0 else 6 if n < 5 else 14 if n < 20 else 20 if n < 50 else 25
+    return scoring.review_points(n, scoring.load_config()["points"]["reviewCount"]["bands"])
 
 
 def cmd_near(a):
@@ -158,7 +158,7 @@ def cmd_near(a):
         st = nearest_station(c["lat"], c["lon"], stations) if stations and c.get("lat") is not None else None
         if st:
             # coordinates are blurred by Airbnb by up to a few hundred metres: allow 3 min slack
-            if a.max_walk and st["walkMin"] > a.max_walk + 3:
+            if a.max_walk and st["walkMin"] > a.max_walk + scoring.load_config().get("rules", {}).get("prefilterWalkSlackMin", 3):
                 dropped["walk"] += 1; continue
             z = geo.zone_min(st["zone"])
             if (a.max_zone and z > a.max_zone) or (a.min_zone and z < a.min_zone):
@@ -354,75 +354,17 @@ def cmd_rank(a):
         c.setdefault("currency", cur)
         c.setdefault("url", f"https://www.airbnb.com/rooms/{c.get('id')}?check_in={F.get('checkin','')}&check_out={F.get('checkout','')}&adults={F.get('guests',2)}&locale=en")
 
-    late = False
-    if arrival.get("datetime"):
-        try:
-            late = datetime.fromisoformat(arrival["datetime"]).hour < 6 or datetime.fromisoformat(arrival["datetime"]).hour >= 22
-        except ValueError:
-            pass
+    cfg = scoring.load_config()
+    ctx = {"london": london, "is_tube_station": lambda name: bool(geo.find_station(stations_all, name))}
 
-    # hard filters
+    # hard rules (config/scoring.json → rules): drop, near miss, or match
     matches, near = [], []
     for c in cands.values():
-        reasons, fails = [], []
-        tp = c.get("totalPrice")
-        if c.get("unavailable"):
+        verdict, reasons, checks = scoring.classify(c, F, cfg, ctx)
+        if verdict == "drop":
             continue
-        if budget and tp:
-            if tp > budget * 1.05:
-                continue
-            if tp > budget:
-                reasons.append(f"{money(cur, tp - budget)} over budget")
-        if min_beds and c.get("beds") is not None and c["beds"] < min_beds:
-            continue
-        ee = c.get("effectivelyEntire", True)
-        if ee is False:
-            continue
-        if ee == "unclear":
-            reasons.append("Not clear you get the whole place")
-        st = c.get("station") or {}
-        if max_walk and st.get("walkMin") is not None and st["walkMin"] > max_walk:
-            if st["walkMin"] > max_walk + 6:
-                continue
-            reasons.append(f"{st['walkMin']} min walk to the tube")
-        if london and st.get("name") and not geo.find_station(stations_all, st["name"]):
-            reasons.append(f"{st['name']} isn't a tube station")
-        z = norm_zone(st)
-        if max_zone and z != 99 and z > max_zone:
-            reasons.append(f"Zone {st.get('zone')}")
-        ci = c.get("checkIn") or {}
-        self_ci = ci.get("selfCheckIn")
-        if need_self and self_ci is False:
-            continue
-        if late and self_ci is False and "24" not in str(ci.get("method", "")):
-            reasons.append("Key pickup won't work for a late arrival")
-        # a check-in window that closes before an early-hours arrival ("until": "21:00")
-        until = str(ci.get("until") or "").strip()
-        late_window_ok = True
-        if late and re.match(r"^\d{1,2}:\d{2}$", until):
-            uh = int(until.split(":")[0])
-            if not (0 < uh < 12):   # ends in the evening or at midnight: closes before an early-hours arrival
-                late_window_ok = False
-                reasons.append(f"Check-in ends {until}, before your arrival")
-        # checks
-        checks = []
-        if budget and tp:
-            checks.append({"label": f"≤ {money(cur, budget)}", "pass": tp <= budget})
-        if min_beds:
-            checks.append({"label": f"≥ {min_beds} beds", "pass": (c.get("beds") or 0) >= min_beds})
-        checks.append({"label": "Entire place", "pass": ee is True})
-        if max_walk and st.get("walkMin") is not None:
-            checks.append({"label": f"Tube ≤{max_walk} min", "pass": st["walkMin"] <= max_walk})
-        if max_zone and z != 99:
-            checks.append({"label": f"Zone ≤ {max_zone}", "pass": z <= max_zone})
-        if need_self:
-            checks.append({"label": "Self check-in", "pass": bool(self_ci)})
-        if late:
-            checks.append({"label": "Late check-in OK", "pass": (bool(self_ci) or "24" in str(ci.get("method", ""))) and late_window_ok})
-        old = {x.get("label") for x in checks}
-        checks += [x for x in (c.get("checks") or []) if x.get("label") not in old and not any(w in x.get("label", "") for w in ("beds", "₪", "budget", "Tube", "Zone", "Self", "Entire"))]
         c["checks"] = checks
-        if reasons:
+        if verdict == "near":
             c["nearMiss"], c["nearMissReason"] = True, "; ".join(reasons)
             near.append(c)
         else:
@@ -491,35 +433,14 @@ def cmd_rank(a):
     else:
         a_route = None
 
-    # scoring
+    # points (config/scoring.json → points)
     for c in pool:
-        st = c.get("station") or {}
-        s = 0.0
-        tp = c.get("totalPrice")
-        if budget and tp:
-            s += 30 * min(1, max(0, (budget - tp) / (budget * 0.4)))
-        if st.get("walkMin") is not None:
-            s += 25 * max(0, 1 - max(0, st["walkMin"] - 3) / max(1, (max_walk or 10) - 1))
-        n = c.get("reviews") or 0
-        s += review_pts(n) * (1.4 if prefer_reviews else 1)
-        if n >= 5 and c.get("rating"):
-            s += (c["rating"] - 4) * 10
-        s -= min(15, 5 * len(c.get("reviewIssues") or []))
-        s += c.get("bonus", 0)  # orchestrator's nice-to-have points (0-10)
-        s += {1: 8, 2: 4}.get(norm_zone(st), 0) if geo_f.get("preferCentral", True) else 0
-        lvl = (c.get("safety") or {}).get("level")
-        s += 4 if lvl == "calmer" else -4 if lvl == "busier" else 0
-        s -= min(20, 10 * len(c.get("seriousFlags") or []))
-        s -= min(12, 4 * len([f for f in (c.get("redFlags") or []) if f not in (c.get("seriousFlags") or [])]))
-        s += 5 if c.get("onWishlist") else 0
-        t = ((c.get("arrivalRoute") or {}).get("transit") or {}).get("totalMin")
-        if t:
-            s += max(0, 5 - max(0, t - 60) / 15)
-        c["score"] = int(max(0, min(100, round(s + 10))))
+        c["score"] = scoring.score(c, F, cfg)
 
     matches.sort(key=lambda c: -c["score"])
     near.sort(key=lambda c: -c["score"])
-    matches, near = matches[: a.keep], near[: max(0, 12 - min(len(matches), a.keep))][:4]
+    rules = cfg.get("rules", {})
+    matches, near = matches[: min(a.keep, rules.get("keepMatches", 8))], near[: rules.get("keepNearMisses", 4)]
     fastest = min((((c.get("arrivalRoute") or {}).get("transit") or {}).get("arriveAt") or "99") for c in matches + near) if (matches or near) else None
     for i, c in enumerate(matches):
         c["topPick"] = i == 0

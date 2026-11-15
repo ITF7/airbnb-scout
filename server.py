@@ -30,6 +30,8 @@ from urllib.parse import unquote, urlparse
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "scripts"))
 import ext_backend  # noqa: E402
+import geo  # noqa: E402
+import scoring  # noqa: E402
 RESULTS = ROOT / "results"
 LOGS = RESULTS / "logs"
 HOST, PORT = "127.0.0.1", int(os.environ.get("SCOUT_PORT", "8787"))
@@ -72,6 +74,41 @@ def claude_supports_chrome(exe: str) -> bool:
         return "--chrome" in out
     except Exception:
         return False
+
+
+def valid_config(cfg) -> bool:
+    """Scoring settings from the tuning page: same shape as config/scoring.json, numbers only (plus _help text)."""
+    if not isinstance(cfg, dict) or not isinstance(cfg.get("points"), dict) or not isinstance(cfg.get("rules"), dict):
+        return False
+    def ok(x, key=""):
+        if key.startswith("_"):
+            return isinstance(x, str)
+        if isinstance(x, bool):
+            return False
+        if isinstance(x, (int, float)):
+            return -1000 <= x <= 1000
+        if isinstance(x, list):
+            return all(ok(i) for i in x)
+        if isinstance(x, dict):
+            return all(ok(v, k) for k, v in x.items())
+        return False
+    return all(ok(v, k) for k, v in cfg.items())
+
+
+def tune_runs() -> list[dict]:
+    runs = []
+    for f in sorted(RESULTS.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
+        try:
+            d = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            continue
+        if not d.get("listings"):
+            continue
+        fl = d.get("filters") or {}
+        when = datetime.fromtimestamp(f.stat().st_mtime).strftime("%d %b %H:%M")
+        runs.append({"file": f.name, "label": f"{(fl.get('location') or '?').split(',')[0]} · {fl.get('checkin', '')} → {fl.get('checkout', '')} · "
+                                              f"{len(d['listings'])} listings · saved {when}"})
+    return runs[:40]
 
 
 def is_extension(origin: str | None) -> bool:
@@ -584,6 +621,20 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {"ok": True, "claude": bool(CLAUDE), "chrome": CHROME_FLAG, "busy": busy,
                                     "phoneApp": bool(relay_cfg()), "relayPolls": RELAY_STATE["polls"],
                                     "relayCostUSD": round(RELAY_STATE["costUSD"], 3)})
+        if path in ("/tune", "/tune.js"):
+            f = ROOT / "templates" / ("tune.html" if path == "/tune" else "tune.js")
+            body = f.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", ("text/html" if path == "/tune" else "text/javascript") + "; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if path == "/api/tune/config":
+            return self._json(200, {"config": scoring.load_config()})
+        if path == "/api/tune/runs":
+            return self._json(200, {"runs": tune_runs()})
         if path == "/api/job":
             return self._json(200, {"job": CURRENT.snapshot() if CURRENT else None})
         self._static(path)
@@ -595,6 +646,8 @@ class Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         if path.startswith("/api/ext/"):
             return self._ext(path)
+        if path.startswith("/api/tune/"):
+            return self._tune(path)
         if path == "/api/search":
             try:
                 length = min(int(self.headers.get("Content-Length", "0")), 10_000)
@@ -617,6 +670,36 @@ class Handler(BaseHTTPRequestHandler):
                 kill(CURRENT, "cancel")
             return self._json(200, {"job": CURRENT.snapshot() if CURRENT else None})
         self._json(404, {"error": "Not found"})
+
+    def _tune(self, path: str):
+        """Scoring page: re-rank a saved search with edited settings, or save the settings."""
+        if self.headers.get("Origin") not in (None, f"http://{HOST}:{PORT}", f"http://localhost:{PORT}"):
+            return self._json(403, {"error": "Forbidden"})
+        try:
+            data = self._body(limit=200_000)
+            cfg = data.get("config")
+            if not valid_config(cfg):
+                return self._json(400, {"error": "Those settings aren't valid: every value must be a number."})
+            if path == "/api/tune/rescore":
+                name = str(data.get("run", ""))
+                src = (RESULTS / name).resolve()
+                if src.parent != RESULTS or src.suffix != ".json" or not src.is_file():
+                    return self._json(404, {"error": "That saved search wasn't found."})
+                rep = json.loads(src.read_text(encoding="utf-8"))
+                stations = geo.load_stations()
+                ctx = {"london": "london" in str((rep.get("filters") or {}).get("location", "")).lower(),
+                       "is_tube_station": lambda n: bool(geo.find_station(stations, n))}
+                out = scoring.rescore(rep, cfg, ctx)
+                out.update({"query": rep.get("query", ""), "currency": (rep.get("filters") or {}).get("currency", "")})
+                return self._json(200, out)
+            if path == "/api/tune/save":
+                if scoring.CONFIG.exists():
+                    shutil.copyfile(scoring.CONFIG, scoring.CONFIG.with_suffix(".previous.json"))
+                scoring.CONFIG.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+                return self._json(200, {"ok": True})
+        except (ValueError, json.JSONDecodeError):
+            return self._json(400, {"error": "Bad request"})
+        return self._json(404, {"error": "Not found"})
 
     def _ext(self, path: str):
         """Endpoints for the Chrome extension: it browses Airbnb in the user's browser, the server thinks."""
@@ -691,9 +774,11 @@ def main():
     print("\n  Airbnb Scout is running at " + url)
     print("  Claude Code: " + (CLAUDE or "NOT FOUND - see README > Setup"))
     print("  Chrome flag: " + ("yes" if CHROME_FLAG else "not detected"))
-    cfg = relay_cfg()
-    print("  Phone app:   " + (f"checking every {max(60, int(cfg.get('intervalSec', 120)))} s" if cfg else "off (no data/relay.json)"))
-    threading.Thread(target=relay_loop, daemon=True).start()
+    cfg = relay_cfg() if os.environ.get("SCOUT_RELAY") != "0" else {}
+    print("  Phone app:   " + (f"checking every {max(60, int(cfg.get('intervalSec', 120)))} s" if cfg else "off"))
+    print("  Scoring:     " + url + "tune")
+    if cfg:
+        threading.Thread(target=relay_loop, daemon=True).start()
     print("  Leave this window open while you use the site. Close it to stop.\n")
     httpd = ThreadingHTTPServer((HOST, PORT), Handler)
     if "--no-browser" not in sys.argv:
