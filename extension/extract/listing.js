@@ -4,6 +4,39 @@
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const clean = s => (s || '').replace(/\n{2,}/g, '\n').replace(/[ \t]+/g, ' ').trim();
   const cap = (s, n) => (s.length > n ? s.slice(0, n) + '…' : s);
+  // Keep what guests said and when; drop who said it. Reviewers' names, home towns and "N years on Airbnb"
+  // lines never leave the page, so Scout doesn't collect personal data.
+  const MONTHS = 'January|February|March|April|May|June|July|August|September|October|November|December';
+  const DATE = new RegExp(`^(Today|Yesterday|\\d+ (days?|weeks?|months?) ago|a (week|month) ago|(${MONTHS}) \\d{4})$`, 'i');
+  const anonymiseReviews = text => {
+    let lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const start = lines.findIndex(l => /items? showing$/i.test(l));
+    if (start >= 0) lines = lines.slice(start + 1);
+    const names = new Set(), out = [];
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i];
+      if (DATE.test(l)) {
+        // the review header right before the date is: name, then "N years on Airbnb" or a home town, then "," and "·"
+        while (out.length && (out[out.length - 1] === ',' || out[out.length - 1] === '·')) out.pop();
+        const last = () => out[out.length - 1] || '';
+        const short = s => s && s.length <= 50 && !/[.!?…]$/.test(s) && !/^Rating, \d/.test(s) && !s.startsWith('— ');
+        if (/on Airbnb$/i.test(last()) || /, /.test(last()) && short(last())) {
+          const tenureOrTown = out.pop();
+          if (!/on Airbnb$/i.test(tenureOrTown)) names.add(tenureOrTown);
+          if (short(last())) names.add(out.pop());       // the name above it
+        } else if (short(last()) && !/^Rating, \d/.test(last())) {
+          names.add(out.pop());                           // just a name
+        }
+        out.push('— ' + l + ':');
+        continue;
+      }
+      if (/^Show more$|^Translated|^Show original$/i.test(l)) continue;
+      const rated = /^(.+?) · (Rating, \d stars?)$/.exec(l);
+      if (rated) { names.add(rated[1]); out.push(rated[2]); continue; }
+      out.push(l);
+    }
+    return out.filter(l => !names.has(l)).join('\n');
+  };
   // Lazy sections load on scroll.
   for (let y = 0; y < document.body.scrollHeight; y += 800) { window.scrollTo(0, y); await sleep(200); }
   await sleep(1200);
@@ -28,7 +61,7 @@
     .map(l => l.replace(/Rated ([\d.]+) out of 5 stars for (.+)/, '$2 $1')).join(', ');
   const cut = reviewsText.search(/\n(Most relevant|Most recent)\n/);
   if (cut > 0) reviewsText = reviewsText.slice(cut).replace(/^\n(Most relevant|Most recent)\n/, '');
-  reviewsText = reviewsText.replace(/\nShow more/g, '').replace(/\n(\d+ (years?|months?) on Airbnb)\n,?\n?·?/g, ' · ');
+  reviewsText = anonymiseReviews(reviewsText);
   const policies = T('POLICIES_DEFAULT');
   const amen = T('AMENITIES_DEFAULT');
   const all = (overview + '\n' + policies + '\n' + amen).toLowerCase();
@@ -55,7 +88,7 @@
     description,
     policies: cap(policies, 900),
     location: cap(T('LOCATION_DEFAULT'), 500),
-    host: cap(T('MEET_YOUR_HOST'), 350),
+    host: cap(T('MEET_YOUR_HOST').replace(/^Meet your host\n[^\n]+\n/, 'Meet your host\n').replace(/\nMessage host[\s\S]*$/, ''), 350),  // no host name
     reviewsText: cap(reviewsText, 4500)
   };
 })()
